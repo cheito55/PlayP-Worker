@@ -32,7 +32,7 @@ function applySettings(s) {
 }
 
 function needBase() {
-    if (!API_BASE || API_BASE.indexOf("xxxxx") >= 0)
+    if (!API_BASE || API_BASE.indexOf("https://pelishub.cheito55.workers.dev/") >= 0)
         throw new ScriptException("Configura la URL del Worker en los ajustes del source (apiBase).");
 }
 
