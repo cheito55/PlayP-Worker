@@ -1,10 +1,5 @@
 /*
- * PelisHub Worker - cliente GrayJay (ES5) para el Cloudflare Worker "StreamflixHub Worker API".
- *  - Catalogo, busqueda, series (canal con todos los episodios) y fuentes salen del worker.
- *  - OK.ru se resuelve aca con la SESION DE GRAYJAY (authentication del manifest): el cliente baja las
- *    paginas de ok.ru, manda al worker solo los fragmentos utiles (/api/okru/hits y /sources) y el worker
- *    hace el matching de titulo/episodio. Los links de OK.ru quedan atados a la IP del telefono.
- *  - Extra (settings extraSites): resultados de PelisJuanita y JKAnime.
+ * PelisHub Worker - cliente GrayJay (ES5) para el Cloudflare Worker.
  */
 
 var PLATFORM = "PelisHubWorker";
@@ -15,13 +10,9 @@ var SCHEME = "pelishubworker://";
 var _settings = {};
 var API_BASE = "";
 var API_KEY = "";
-var OK_QUERIES = 3;   /* busquedas de OK.ru en paralelo */
-var OK_EMBEDS = 3;    /* paginas de video de OK.ru a analizar (cada una pesa ~1MB) */
+var OK_QUERIES = 3;
+var OK_EMBEDS = 3;
 var MODES = ["fast", "normal", "full"];
-
-/* ------------------------------------------------------------------ */
-/* utilidades                                                          */
-/* ------------------------------------------------------------------ */
 
 function truthy(v) { return v === true || v === "true" || v === 1 || v === "1"; }
 
@@ -36,9 +27,9 @@ function applySettings(s) {
 
 function needBase() {
     if (!API_BASE)
-        throw new ScriptException("Configura la URL del Worker en los ajustes del source (apiBase).\nEjemplo: https://pelishub.cheito55.workers.dev");
+        throw new ScriptException("Configura la URL del Worker en ajustes (apiBase).\nEjemplo: https://pelishub.cheito55.workers.dev");
     if (API_BASE.indexOf("xxxxx") >= 0)
-        throw new ScriptException("La URL del Worker sigue con el placeholder xxxxx.\nPon: https://pelishub.cheito55.workers.dev");
+        throw new ScriptException("La URL sigue con xxxxx.\nPon: https://pelishub.cheito55.workers.dev");
 }
 
 function apiHeaders(json) {
@@ -51,6 +42,12 @@ function apiHeaders(json) {
 function parseBody(r) {
     if (!r || !r.body) return null;
     try { return JSON.parse(r.body); } catch (e) { return null; }
+}
+
+function checkResp(r, what) {
+    if (!r) throw new ScriptException("Sin respuesta del worker (" + what + ")");
+    if (r.code === 401) throw new ScriptException("Worker: API key invalida (ajuste apiKey)");
+    if (r.code >= 500 && !r.body) throw new ScriptException("Worker error " + r.code + " (" + what + ")");
 }
 
 function apiGet(path) {
@@ -67,8 +64,7 @@ function apiPost(path, obj) {
     return parseBody(r);
 }
 
-/* opciones del worker segun los ajustes */
-function optQuery(forSearch) {
+function optQuery() {
     var q = [];
     if (truthy(_settings.servidoresPlus)) q.push("plus=1");
     var mi = parseInt(_settings.serverMode, 10);
@@ -95,13 +91,6 @@ function showAuthor(chanUrl, name, poster) {
     return new PlatformAuthorLink(PPID, name || "Serie", chanUrl, poster || "", 0);
 }
 
-/* ------------------------------------------------------------------ */
-/* URLs internas                                                       */
-/*   movie/<tmdb>                tv/<tmdb>/<s>/<e>      show/<tmdb>    */
-/*   jm/<slug>                   jt/<slug>/<s>/<e>      jshow/<slug>   */
-/*   jk/<slug>/<n>               jkshow/<slug>                         */
-/* ------------------------------------------------------------------ */
-
 function mkUrl(parts) { return SCHEME + parts.join("/"); }
 
 function parseUrl(url) {
@@ -120,7 +109,6 @@ function parseUrl(url) {
     return null;
 }
 
-/* item del catalogo del worker -> PlatformVideo */
 function mapItem(it) {
     var kind = it.kind, id = String(it.id), url, chan = "", vid = kind + "_" + id;
     if (kind === "movie") url = mkUrl(["movie", id]);
@@ -150,7 +138,6 @@ function mapItems(list) {
     return out;
 }
 
-/* pager: muta y devuelve this; results siempre es un array */
 function makePager(results, hasMore, loadNext) {
     var pager = new VideoPager(results || [], !!hasMore, {});
     var page = 1;
@@ -171,13 +158,8 @@ function pageOf(path, pg) {
     return { results: mapItems(d.results), hasMore: d.hasMore === true || (d.hasMore === undefined && pg < (d.totalPages || 1)) };
 }
 
-/* ------------------------------------------------------------------ */
-/* OK.ru con la sesion de GrayJay                                      */
-/* ------------------------------------------------------------------ */
-
 var OK_HEADERS = { "Referer": "https://ok.ru/", "Accept-Language": "es-AR,es;q=0.9,en;q=0.8" };
 
-/* deja solo lo que el worker necesita de la pagina de busqueda (la pagina completa pesa mucho) */
 function trimOkSearch(html) {
     html = String(html || "");
     var out = [], m, re, seen = {}, total = 0;
@@ -193,7 +175,6 @@ function trimOkSearch(html) {
     return out.join("\n");
 }
 
-/* deja solo <title> y data-options (donde viene la metadata del video) */
 function trimOkEmbed(html) {
     html = String(html || "");
     var out = "", t = /<title[^>]*>[^<]*<\/title>/i.exec(html), m = /data-options=(?:"[^"]*"|'[^']*')/i.exec(html);
@@ -220,7 +201,6 @@ function runBatch(reqs) {
     return b.execute() || [];
 }
 
-/* devuelve { sources: [...], log: [...] } */
 function okruSources(p, plan, dbg) {
     var out = [];
     try {
@@ -258,7 +238,6 @@ function okruSources(p, plan, dbg) {
         if (!embeds.length) return out;
         var sr = apiPost("/api/okru/sources?" + okQs(p), { pages: embeds });
         var srcs = (sr && sr.sources) || [];
-        /* metadataUrl: la baja el cliente (misma IP que reproduce) y se reenvia */
         if (sr && sr.pending && sr.pending.length) {
             var pend = [], byId = {}, k;
             for (k = 0; k < embeds.length; k++) byId[embeds[k].id] = embeds[k];
@@ -284,10 +263,6 @@ function okruSources(p, plan, dbg) {
     return out;
 }
 
-/* ------------------------------------------------------------------ */
-/* fuentes -> GrayJay                                                  */
-/* ------------------------------------------------------------------ */
-
 function heightOf(name) {
     var m = /(\d{3,4})p/i.exec(name || "");
     if (m) return parseInt(m[1], 10);
@@ -296,6 +271,8 @@ function heightOf(name) {
     if (/\bhd\b/i.test(name || "")) return 720;
     return 0;
 }
+
+function hasKeys(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) return true; return false; }
 
 function toSource(s) {
     if (!s || !s.url) return null;
@@ -312,12 +289,10 @@ function toSource(s) {
     } catch (e) { return null; }
 }
 
-function hasKeys(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) return true; return false; }
-
 function debugOn() { return truthy(_settings.debugMode); }
 
 function pathFor(p) {
-    var q = optQuery(false), d = debugOn() ? "&debug=1" : "";
+    var q = optQuery(), d = debugOn() ? "&debug=1" : "";
     if (p.kind === "movie") return "/api/movie/" + p.id + "?" + q + d;
     if (p.kind === "tv") return "/api/tv/" + p.id + "/" + p.season + "/" + p.episode + "?" + q + d;
     if (p.kind === "jm") return "/api/juanita/movie/" + encodeURIComponent(p.id) + "?" + (debugOn() ? "debug=1" : "");
@@ -333,12 +308,12 @@ function detailsId(p) {
     return new PlatformID(PLATFORM, k, PID);
 }
 
-/* ------------------------------------------------------------------ */
-/* API de GrayJay                                                      */
-/* ------------------------------------------------------------------ */
-
 if (typeof source !== "undefined") {
     source.enable = function (conf, settings, saveStateStr) {
+        applySettings(settings);
+    };
+
+    source.setSettings = function (settings) {
         applySettings(settings);
     };
 
@@ -374,7 +349,6 @@ if (typeof source !== "undefined") {
         needBase();
         var dbg = [], useOk = (p.kind === "movie" || p.kind === "tv") && _settings.okruSession !== false && _settings.okruSession !== "false";
 
-        /* detalles del worker y plan de OK.ru en paralelo */
         var b = http.batch();
         b.GET(API_BASE + pathFor(p), apiHeaders(false), false);
         if (useOk) b.GET(API_BASE + "/api/okru/plan?" + okQs(p), apiHeaders(false), false);
@@ -424,7 +398,6 @@ if (typeof source !== "undefined") {
         return new VideoPager([], false, {});
     };
 
-    /* ---- series como canal ---- */
     source.isChannelUrl = function (url) {
         var p = parseUrl(url);
         return !!(p && (p.kind === "show" || p.kind === "jshow" || p.kind === "jkshow"));
