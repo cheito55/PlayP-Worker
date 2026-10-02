@@ -27,13 +27,18 @@ function truthy(v) { return v === true || v === "true" || v === 1 || v === "1"; 
 
 function applySettings(s) {
     _settings = s || {};
-    API_BASE = String(_settings.apiBase || "").replace(/\/+$/, "");
+    var base = "";
+    if (_settings.apiBase != null) base = String(_settings.apiBase);
+    base = base.replace(/^\s+|\s+$/g, "").replace(/\/+$/, "");
+    API_BASE = base;
     API_KEY = String(_settings.apiKey || "").replace(/^\s+|\s+$/g, "");
 }
 
 function needBase() {
-    if (!API_BASE || API_BASE.indexOf("https://pelishub.cheito55.workers.dev/") >= 0)
-        throw new ScriptException("Configura la URL del Worker en los ajustes del source (apiBase).");
+    if (!API_BASE)
+        throw new ScriptException("Configura la URL del Worker en los ajustes del source (apiBase).\nEjemplo: https://pelishub.cheito55.workers.dev");
+    if (API_BASE.indexOf("xxxxx") >= 0)
+        throw new ScriptException("La URL del Worker sigue con el placeholder xxxxx.\nPon: https://pelishub.cheito55.workers.dev");
 }
 
 function apiHeaders(json) {
@@ -46,12 +51,6 @@ function apiHeaders(json) {
 function parseBody(r) {
     if (!r || !r.body) return null;
     try { return JSON.parse(r.body); } catch (e) { return null; }
-}
-
-function checkResp(r, what) {
-    if (!r) throw new ScriptException("Sin respuesta del worker (" + what + ")");
-    if (r.code === 401) throw new ScriptException("Worker: API key invalida (ajuste apiKey)");
-    if (r.code >= 500 && !r.body) throw new ScriptException("Worker error " + r.code + " (" + what + ")");
 }
 
 function apiGet(path) {
