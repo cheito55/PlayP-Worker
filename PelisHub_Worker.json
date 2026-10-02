@@ -25,7 +25,7 @@
       "name": "URL del Worker",
       "description": "Ejemplo: https://pelishub-api.xxxxx.workers.dev",
       "type": "String",
-      "default": "https://pelishub-api.xxxxx.workers.dev"
+      "default": "https://pelishub.cheito55.workers.dev/"
     },
     {
       "variable": "apiKey",
