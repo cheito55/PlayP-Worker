@@ -1,12 +1,12 @@
 {
   "name": "PelisHub Worker",
-  "description": "Catalogo TMDB + fuentes resueltas en Cloudflare Worker (OK.ru con la sesion de GrayJay)",
+  "description": "Catalogo TMDB + fuentes en Cloudflare Worker",
   "author": "cheito55",
   "authorUrl": "https://github.com/cheito55",
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHub_Worker.js",
-  "version": 9,
+  "version": 10,
   "iconUrl": "",
   "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
   "scriptSignature": "",
@@ -18,48 +18,32 @@
   "allowUrls": [
     "everywhere"
   ],
-  "authentication": {
-    "loginUrl": "https://ok.ru/dk?st.cmd=anonymMain",
-    "completionUrl": "https://ok.ru/feed",
-    "cookiesToFind": [
-      "JSESSIONID",
-      "AUTHCODE",
-      "domain_sid"
-    ]
-  },
   "settings": [
     {
       "variable": "apiBase",
       "name": "URL del Worker",
-      "description": "Ejemplo: https://pelishub.cheito55.workers.dev",
+      "description": "https://pelishub.cheito55.workers.dev",
       "type": "String",
       "default": "https://pelishub.cheito55.workers.dev"
     },
     {
       "variable": "apiKey",
       "name": "API key (opcional)",
-      "description": "Solo si definiste API_TOKEN en el Worker",
+      "description": "Solo si hay API_TOKEN en el Worker",
       "type": "String",
       "default": ""
     },
     {
-      "variable": "okruSession",
-      "name": "OK.ru con mi sesion",
-      "description": "Busca videos en OK.ru usando la sesion iniciada en este source",
-      "type": "Boolean",
-      "default": "true"
-    },
-    {
       "variable": "servidoresPlus",
       "name": "Servidores Plus",
-      "description": "Odysee + Dailymotion + Archive.org primero",
+      "description": "Odysee + Dailymotion + Archive",
       "type": "Boolean",
       "default": "false"
     },
     {
       "variable": "serverMode",
       "name": "Modo de servidores",
-      "description": "Cuantos servidores buscar (Rapido ~3, Normal ~5, Completo ~8)",
+      "description": "Rapido / Normal / Completo",
       "type": "Dropdown",
       "default": "0",
       "options": [
@@ -71,14 +55,14 @@
     {
       "variable": "extraSites",
       "name": "Sitios extra",
-      "description": "Catalogo PelisJuanita/JKAnime en la busqueda + sitios WordPress extra",
+      "description": "Mas proveedores",
       "type": "Boolean",
       "default": "false"
     },
     {
       "variable": "debugMode",
       "name": "Modo diagnostico",
-      "description": "Muestra el log del worker y de OK.ru en la descripcion",
+      "description": "Muestra debug del worker",
       "type": "Boolean",
       "default": "false"
     }
