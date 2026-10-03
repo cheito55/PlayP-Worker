@@ -67,8 +67,10 @@ function getJson(path) {
 }
 
 function detailQuery() {
-    var q = "?plus=1";
+    var q = "?mode=" + ((SETTINGS && SETTINGS.mode) || "fast");
+    if (SETTINGS && (SETTINGS.servidoresPlus === true || SETTINGS.servidoresPlus === "true")) q += "&plus=1";
     if (SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true")) q += "&proxy=1";
+    if (SETTINGS && (SETTINGS.debugMode === true || SETTINGS.debugMode === "true")) q += "&debug=1";
     return q;
 }
 
@@ -123,7 +125,7 @@ function typeOf(x) {
 function imageOf(x) {
     if (!isObj(x)) return "";
     var v = first(x, ["poster", "posterUrl", "poster_url", "poster_path", "thumbnail", "thumbnailUrl",
-        "image", "imageUrl", "cover", "backdrop", "backdrop_path", "still_path"], "");
+        "image", "imageUrl", "cover", "still", "backdrop", "backdrop_path", "still_path"], "");
     if (isObj(v)) v = first(v, ["url", "src", "path"], "");
     v = str(v);
     if (v.indexOf("//") === 0) return "https:" + v;
@@ -137,9 +139,10 @@ function descriptionOf(x) {
 }
 
 function durationSec(x) {
-    var n = num(first(x, ["duration", "durationSeconds", "runtime"], -1), -1);
-    if (n <= 0) return -1;
-    return n < 1000 ? Math.round(n * 60) : Math.round(n); // runtime suele venir en minutos
+    var d = num(first(x, ["duration", "durationSeconds"], -1), -1);
+    if (d > 0) return Math.round(d); // el worker entrega segundos
+    var r = num(first(x, ["runtime"], -1), -1);
+    return r > 0 ? Math.round(r * 60) : -1; // runtime = minutos
 }
 
 function makeThumbs(url) {
@@ -245,6 +248,20 @@ function walk(node, ctx, out, depth) {
     }
     if (typeof node !== "object") return;
 
+    if (typeof node.url === "string" && /^https?:\/\//i.test(node.url) && typeof node.type === "string" && /^(hls|mp4|dash|webm|m3u8|mkv)$/i.test(node.type)) {
+        var useP = SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true") && typeof node.proxyUrl === "string" && node.proxyUrl;
+        out.push({
+            url: useP ? node.proxyUrl : node.url,
+            name: str(first(node, ["name", "server", "label"], ctx.name)),
+            quality: "",
+            lang: "",
+            type: node.type.toLowerCase(),
+            container: str(node.container),
+            headers: useP ? null : (isObj(node.headers) ? node.headers : ctx.headers)
+        });
+        return;
+    }
+
     var c2 = {
         name: str(first(node, ["server", "serverName", "provider", "host", "label", "name"], ctx.name)),
         quality: str(first(node, ["quality", "resolution", "res"], ctx.quality)),
@@ -263,9 +280,10 @@ function buildSource(s, duration) {
     if (s.lang) label += " [" + s.lang + "]";
 
     var inner = innerUrl(s.url).toLowerCase();
+    var isHls = s.type === "hls" || s.type === "m3u8" || inner.indexOf(".m3u8") >= 0;
     var mod = (s.headers && Object.keys(s.headers).length) ? { headers: s.headers } : null;
 
-    if (inner.indexOf(".m3u8") >= 0) {
+    if (isHls) {
         var h = { name: label, url: s.url, duration: duration > 0 ? duration : 0, priority: false };
         if (mod) h.requestModifier = mod;
         return new HLSSource(h);
@@ -277,7 +295,7 @@ function buildSource(s, duration) {
         url: s.url,
         width: 0,
         height: hm ? Number(hm[1]) : 0,
-        container: inner.indexOf(".webm") >= 0 ? "video/webm" : "video/mp4",
+        container: s.container || (inner.indexOf(".webm") >= 0 ? "video/webm" : "video/mp4"),
         codec: "",
         bitrate: 0,
         duration: duration > 0 ? duration : 0
@@ -366,7 +384,7 @@ source.enable = function (conf, settings, savedState) {
 source.getHome = function (continuationToken) {
     var page = continuationToken ? Number(continuationToken) : 1;
     if (!page || page < 1) page = 1;
-    var items = listOf(getJson("/api/home?page=" + page + "&mode=fast&extra=1"));
+    var items = listOf(getJson("/api/home?page=" + page));
     var videos = toVideos(items);
     return new PelisHubHomePager(videos, videos.length > 0 && page < 10, page + 1);
 };
@@ -381,7 +399,7 @@ source.search = function (query, type, order, filters, continuationToken) {
     query = str(query).trim();
     if (!query) return new PelisHubSearchPager([], false, {});
     // Sin filtrar por parecido de titulo: el worker ya busca en TMDB y el titulo puede venir en otro idioma.
-    var items = listOf(getJson("/api/search?q=" + enc(query) + "&extra=1&mode=fast"));
+    var items = listOf(getJson("/api/search?q=" + enc(query)));
     return new PelisHubSearchPager(toVideos(items), false, {});
 };
 
@@ -418,15 +436,16 @@ source.getContentDetails = function (url) {
     var sources = buildSources(data, duration);
     if (!sources.length) {
         var keys = isObj(data) ? Object.keys(data).join(",") : typeof data;
-        fail("PelisHub: sin fuentes reproducibles para '" + title + "'" + (kind === "tv" ? " S" + pad2(season) + "E" + pad2(episode) : "") +
-            " (claves de respuesta: " + keys + ")");
+        var tail = "";
+        if (isObj(data) && Array.isArray(data.debug)) tail = " | " + data.debug.slice(-6).join(" / ");
+        fail("PelisHub: sin fuentes reproducibles para '" + title + "'" +
+            (kind === "tv" ? " S" + pad2(season) + "E" + pad2(episode) : "") + tail);
     }
 
     var name = title, author;
     if (kind === "tv") {
-        var showName = str(first(obj, ["showTitle", "show_title", "seriesTitle", "show_name"], ""));
-        name = (showName || title) + " S" + pad2(season) + "E" + pad2(episode) + (showName && title !== showName ? " - " + title : "");
-        author = showAuthor(id, showName || title, img);
+        name = title; // ya viene como "Serie · S1E1 · episodio"
+        author = showAuthor(id, title.split(" \u00b7 ")[0], str(first(obj, ["poster"], "")));
     } else {
         author = genericAuthor(img);
     }
