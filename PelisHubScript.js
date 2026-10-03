@@ -250,8 +250,7 @@ function walk(node, ctx, out, depth) {
     if (typeof node !== "object") return;
 
     if (typeof node.url === "string" && /^https?:\/\//i.test(node.url) && typeof node.type === "string" && /^(hls|mp4|dash|webm|m3u8|mkv)$/i.test(node.type)) {
-        var forceProxy = /poseidonhd2|player\.php|\.m3u8/i.test(str(node.url)) || /poseidon/i.test(str(node.name) + str(ctx.name));
-        var useP = typeof node.proxyUrl === "string" && node.proxyUrl && (forceProxy || (SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true")));
+        var useP = SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true") && typeof node.proxyUrl === "string" && node.proxyUrl;
         out.push({
             url: useP ? node.proxyUrl : node.url,
             name: str(first(node, ["name", "server", "label"], ctx.name)),
