@@ -1,0 +1,86 @@
+{
+  "name": "PelisHub Worker",
+  "description": "Catalogo TMDB + fuentes resueltas en Cloudflare Worker",
+  "author": "cheito55",
+  "authorUrl": "https://github.com/cheito55",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
+  "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
+  "scriptUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.js",
+  "version": 5,
+  "iconUrl": "",
+  "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
+  "scriptSignature": "",
+  "scriptPublicKey": "",
+  "packages": [
+    "Http"
+  ],
+  "allowEval": false,
+  "allowUrls": [
+    "everywhere"
+  ],
+  "authentication": {
+    "loginUrl": "https://ok.ru/dk?st.cmd=anonymMain",
+    "completionUrl": "https://ok.ru/feed",
+    "cookiesToFind": [
+      "JSESSIONID",
+      "AUTHCODE",
+      "domain_sid"
+    ]
+  },
+  "settings": [
+    {
+      "variable": "apiBase",
+      "name": "URL del Worker",
+      "description": "https://pelishub.cheito55.workers.dev",
+      "type": "String",
+      "default": "https://pelishub.cheito55.workers.dev"
+    },
+    {
+      "variable": "apiKey",
+      "name": "API key (opcional)",
+      "description": "Solo si definiste API_TOKEN en el Worker",
+      "type": "String",
+      "default": ""
+    },
+    {
+      "variable": "okruSession",
+      "name": "OK.ru con mi sesion",
+      "description": "Busca videos en OK.ru con la sesion de esta fuente",
+      "type": "Boolean",
+      "default": "true"
+    },
+    {
+      "variable": "servidoresPlus",
+      "name": "Servidores Plus",
+      "description": "Odysee + Dailymotion + Archive.org primero",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "serverMode",
+      "name": "Modo de servidores",
+      "description": "Cuantos servidores buscar",
+      "type": "Dropdown",
+      "default": "0",
+      "options": [
+        "Rapido",
+        "Normal",
+        "Completo"
+      ]
+    },
+    {
+      "variable": "extraSites",
+      "name": "Sitios extra",
+      "description": "Catalogo extra en la busqueda",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "debugMode",
+      "name": "Modo diagnostico",
+      "description": "Muestra el log en la descripcion",
+      "type": "Boolean",
+      "default": "false"
+    }
+  ]
+}
