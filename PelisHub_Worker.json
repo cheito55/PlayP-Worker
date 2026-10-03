@@ -1,0 +1,70 @@
+{
+  "name": "PelisHub Worker",
+  "description": "Catalogo TMDB. El script solo pide JSON al Worker, igual que PlPro pide a su API.",
+  "author": "cheito55",
+  "authorUrl": "https://github.com/cheito55",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
+  "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
+  "scriptUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.js",
+  "version": 7,
+  "iconUrl": "",
+  "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
+  "scriptSignature": "",
+  "scriptPublicKey": "",
+  "packages": [
+    "Http"
+  ],
+  "allowEval": false,
+  "allowUrls": [
+    "everywhere"
+  ],
+  "settings": [
+    {
+      "variable": "apiBase",
+      "name": "URL del Worker",
+      "description": "https://pelishub.cheito55.workers.dev",
+      "type": "String",
+      "default": "https://pelishub.cheito55.workers.dev"
+    },
+    {
+      "variable": "apiKey",
+      "name": "API key (opcional)",
+      "description": "Solo si hay API_TOKEN",
+      "type": "String",
+      "default": ""
+    },
+    {
+      "variable": "servidoresPlus",
+      "name": "Activar servidores plus",
+      "description": "Pide al Worker OK.ru + Odysee + Dailymotion + Archive.org primero.",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "serverMode",
+      "name": "Modo de servidores",
+      "description": "Rapido / Normal / Completo",
+      "type": "Dropdown",
+      "default": "0",
+      "options": [
+        "Rapido",
+        "Normal",
+        "Completo"
+      ]
+    },
+    {
+      "variable": "extraSites",
+      "name": "Buscar en sitios extra",
+      "description": "Pide al Worker el catalogo extra.",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "debugMode",
+      "name": "Modo diagnostico",
+      "description": "Pide al Worker el reporte y lo muestra en la descripcion.",
+      "type": "Boolean",
+      "default": "false"
+    }
+  ]
+}
