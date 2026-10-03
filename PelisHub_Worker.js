@@ -8,7 +8,7 @@ var PPID = new PlatformID(PLATFORM, PLATFORM, PID);
 var SCHEME = "pelishubworker://";
 
 var _settings = {};
-var API_BASE = "";
+var API_BASE = "https://pelishub.cheito55.workers.dev";
 var API_KEY = "";
 var OK_QUERIES = 3;
 var OK_EMBEDS = 3;
@@ -19,17 +19,19 @@ function truthy(v) { return v === true || v === "true" || v === 1 || v === "1"; 
 function applySettings(s) {
     _settings = s || {};
     var base = "";
-    if (_settings.apiBase != null) base = String(_settings.apiBase);
+    if (_settings.apiBase != null && String(_settings.apiBase).length)
+        base = String(_settings.apiBase);
     base = base.replace(/^\s+|\s+$/g, "").replace(/\/+$/, "");
-    API_BASE = base;
+    /* Si el ajuste viene vacio, conservar el default ya cargado */
+    if (base) API_BASE = base;
+    if (!API_BASE) API_BASE = "https://pelishub.cheito55.workers.dev";
     API_KEY = String(_settings.apiKey || "").replace(/^\s+|\s+$/g, "");
 }
 
 function needBase() {
-    if (!API_BASE)
-        throw new ScriptException("Configura la URL del Worker en ajustes (apiBase).\nEjemplo: https://pelishub.cheito55.workers.dev");
-    if (API_BASE.indexOf("xxxxx") >= 0)
-        throw new ScriptException("La URL sigue con xxxxx.\nPon: https://pelishub.cheito55.workers.dev");
+    if (!API_BASE || API_BASE.indexOf("xxxxx") >= 0)
+        API_BASE = "https://pelishub.cheito55.workers.dev";
+    API_BASE = String(API_BASE).replace(/\/+$/, "");
 }
 
 function apiHeaders(json) {
@@ -40,26 +42,41 @@ function apiHeaders(json) {
 }
 
 function parseBody(r) {
-    if (!r || !r.body) return null;
+    if (!r || r.body == null || r.body === "") return null;
     try { return JSON.parse(r.body); } catch (e) { return null; }
 }
 
 function checkResp(r, what) {
-    if (!r) throw new ScriptException("Sin respuesta del worker (" + what + ")");
-    if (r.code === 401) throw new ScriptException("Worker: API key invalida (ajuste apiKey)");
-    if (r.code >= 500 && !r.body) throw new ScriptException("Worker error " + r.code + " (" + what + ")");
+    var url = API_BASE + what;
+    if (!r) throw new ScriptException("Sin respuesta del worker\n" + url);
+    var code = (r.code != null) ? r.code : 0;
+    var ok = (r.isOk === true) || (code >= 200 && code < 300);
+    if (code === 401) throw new ScriptException("Worker: API key invalida (ajuste apiKey)\n" + url);
+    if (!ok) {
+        var snip = r.body ? String(r.body).substring(0, 180) : "(sin body)";
+        throw new ScriptException("Worker HTTP " + code + "\n" + url + "\n" + snip);
+    }
 }
 
 function apiGet(path) {
     needBase();
-    var r = http.GET(API_BASE + path, apiHeaders(false), false);
+    var url = API_BASE + path;
+    var r = null;
+    try { r = http.GET(url, apiHeaders(false), false); }
+    catch (e) { throw new ScriptException("Fallo http.GET\n" + url + "\n" + e); }
     checkResp(r, path);
-    return parseBody(r);
+    var data = parseBody(r);
+    if (data == null && r.body)
+        throw new ScriptException("Worker no devolvio JSON\n" + url + "\n" + String(r.body).substring(0, 180));
+    return data;
 }
 
 function apiPost(path, obj) {
     needBase();
-    var r = http.POST(API_BASE + path, JSON.stringify(obj), apiHeaders(true), false);
+    var url = API_BASE + path;
+    var r = null;
+    try { r = http.POST(url, JSON.stringify(obj), apiHeaders(true), false); }
+    catch (e) { throw new ScriptException("Fallo http.POST\n" + url + "\n" + e); }
     checkResp(r, path);
     return parseBody(r);
 }
