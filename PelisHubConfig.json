@@ -6,7 +6,7 @@
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
-  "version": 2,
+  "version": 3,
   "id": "8d1a0a2d-3e72-4f6d-9e2e-2d4f9e7d4b31",
   "packages": ["Http"],
   "allowEval": false,
@@ -18,6 +18,13 @@
       "variable": "debugMode",
       "name": "Modo debug",
       "description": "Escribe en el log de GrayJay cada request al worker.",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "servidoresPlus",
+      "name": "Servidores Plus",
+      "description": "Agrega OK.ru, Odysee, Dailymotion y Archive.org (mas lento; pueden coincidir mal).",
       "type": "Boolean",
       "default": "false"
     },
