@@ -3,7 +3,7 @@
   "description": "GrayJay source backed by the PelisHub Worker API.",
   "author": "OpenAI",
   "authorUrl": "https://openai.com/",
-  "sourceUrl": "https://pelishub.cheito55.workers.dev/grayjay/PelisHubConfig.json",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
   "repositoryUrl": "https://pelishub.cheito55.workers.dev/",
   "scriptUrl": "./PelisHubScript.js",
   "version": 1,
