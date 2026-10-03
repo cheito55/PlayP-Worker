@@ -320,6 +320,123 @@ function buildSources(data, duration) {
     return out;
 }
 
+
+/* ------------------------------------------- OK.ru con la sesion de GrayJay */
+/* Flujo: GET /api/okru/plan -> buscar en ok.ru con useAuth (cookies de GrayJay) -> POST /hits ->
+   bajar los embeds -> POST /sources (si devuelve "pending", se baja la metadata desde aqui, porque los links
+   de OK.ru van atados a la IP que pidio la metadata) -> POST /sources otra vez. */
+
+var OK_HEADERS = { "Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", "Accept-Language": "es-AR,es;q=0.9,en;q=0.8", "Referer": "https://ok.ru/" };
+
+function okOn() {
+    return !(SETTINGS && (SETTINGS.okruConLogin === false || SETTINGS.okruConLogin === "false"));
+}
+
+function postJson(path, obj) {
+    var url = API + path;
+    dbg("POST " + url);
+    var r = http.POST(url, JSON.stringify(obj), { "Content-Type": "application/json", "Accept": "application/json" }, false);
+    if (!r || !r.isOk) fail("PelisHub: HTTP " + (r ? r.code : "sin respuesta") + " en " + url);
+    try { return JSON.parse(r.body); } catch (e) { fail("PelisHub: la respuesta no es JSON (" + url + ")"); }
+}
+
+// Descarga varias URLs de ok.ru con la sesion de GrayJay (en paralelo si http.batch existe).
+function okGetMany(urls) {
+    var out = [], i;
+    try {
+        var b = http.batch();
+        for (i = 0; i < urls.length; i++) b.GET(urls[i], OK_HEADERS, true);
+        var rs = b.execute();
+        for (i = 0; i < urls.length; i++) out.push(rs[i] && rs[i].isOk ? str(rs[i].body) : "");
+        return out;
+    } catch (e) {
+        dbg("batch no disponible, voy de a una: " + e);
+    }
+    out = [];
+    for (i = 0; i < urls.length; i++) {
+        try {
+            var r = http.GET(urls[i], OK_HEADERS, true);
+            out.push(r && r.isOk ? str(r.body) : "");
+        } catch (e2) { out.push(""); }
+    }
+    return out;
+}
+
+function okMetaText(url) {
+    try {
+        var r = http.GET(url, OK_HEADERS, true);
+        if (r && r.isOk && r.body && str(r.body).charAt(0) === "{") return str(r.body);
+    } catch (e) {}
+    try {
+        var r2 = http.POST(url, "", OK_HEADERS, true);
+        if (r2 && r2.isOk && r2.body) return str(r2.body);
+    } catch (e2) {}
+    return "";
+}
+
+// Solo lo util de la pagina de busqueda (los links /video/ID, la lista de videos y ids sueltos).
+function okFragments(html) {
+    html = str(html);
+    var out = [], m, re;
+    re = /<a\b[^>]*href\s*=\s*["'](?:https?:\/\/[^"']+)?\/(?:video|videoembed)\/\d+[^>]*>[\s\S]*?<\/a>/gi;
+    while ((m = re.exec(html)) != null && out.length < 80) out.push(m[0].substring(0, 800));
+    var vs = /<video-search-results[^>]*\svideos=(?:"[^"]+"|'[^']+')[^>]*>/i.exec(html);
+    if (vs) out.push(vs[0]);
+    re = /(?:data-movie-id|data-video-id|data-content-id|st\.mvId|movieId|videoId|video_id|movie_id)\s*["':=]+\s*["']?\d{6,}["']?/gi;
+    while ((m = re.exec(html)) != null && out.length < 160) out.push(m[0]);
+    re = /(?:https?:\/\/)?(?:www\.|m\.)?ok\.ru\/(?:video|videoembed)\/\d{6,}/gi;
+    while ((m = re.exec(html)) != null && out.length < 220) out.push(m[0]);
+    return out.join("\n");
+}
+
+// Del embed solo se manda el data-options (trae la metadata del reproductor) y el <title>.
+function okEmbedFragment(html) {
+    html = str(html);
+    var m = /data-options=(?:"[^"]*"|'[^']*')/i.exec(html);
+    var t = /<title[^>]*>[^<]*<\/title>/i.exec(html);
+    return (m ? m[0] : html.substring(0, 300000)) + (t ? "\n" + t[0] : "");
+}
+
+function okruSources(kind, id, season, episode) {
+    var qs = "?kind=" + kind + "&id=" + enc(id) + "&s=" + season + "&e=" + episode;
+    var plan = getJson("/api/okru/plan" + qs);
+    var queries = (plan && plan.queries ? plan.queries : []).slice(0, 6);
+    if (!queries.length) return [];
+    var searchTpl = str(plan.searchUrl) || "https://ok.ru/dk?st.cmd=searchResult&st.mode=Movie&st.grmode=Groups&st.query={q}";
+    var embedTpl = str(plan.embedUrl) || "https://ok.ru/videoembed/{id}";
+
+    var urls = [], i;
+    for (i = 0; i < queries.length; i++) urls.push(searchTpl.replace("{q}", enc(queries[i])));
+    var pages = okGetMany(urls).map(okFragments).filter(function (x) { return !!x; });
+    dbg("OK.ru: " + pages.length + "/" + urls.length + " busquedas con resultados");
+    if (!pages.length) return [];
+
+    var hits = (postJson("/api/okru/hits" + qs, { pages: pages }).hits || []).slice(0, 6);
+    dbg("OK.ru: " + hits.length + " candidatos");
+    if (!hits.length) return [];
+
+    var embUrls = [];
+    for (i = 0; i < hits.length; i++) embUrls.push(embedTpl.replace("{id}", hits[i].id));
+    var htmls = okGetMany(embUrls), pgs = [];
+    for (i = 0; i < hits.length; i++) {
+        if (htmls[i]) pgs.push({ id: hits[i].id, name: hits[i].name || "", html: okEmbedFragment(htmls[i]) });
+    }
+    if (!pgs.length) return [];
+
+    var res = postJson("/api/okru/sources" + qs, { pages: pgs });
+    if (res && res.pending && res.pending.length) {
+        var byId = {};
+        for (i = 0; i < res.pending.length; i++) {
+            var txt = okMetaText(res.pending[i].url);
+            if (txt) byId[res.pending[i].id] = txt;
+        }
+        for (i = 0; i < pgs.length; i++) if (byId[pgs[i].id]) pgs[i].meta = byId[pgs[i].id];
+        res = postJson("/api/okru/sources" + qs, { pages: pgs });
+    }
+    dbg("OK.ru: " + ((res && res.sources) ? res.sources.length : 0) + " fuentes");
+    return (res && res.sources) ? res.sources : [];
+}
+
 /* -------------------------------------------------------------- series */
 
 function episodesOf(show) {
@@ -428,13 +545,43 @@ source.getContentDetails = function (url) {
         canonicalUrl = API + apiPath;
     }
 
-    var data = getJson(apiPath + detailQuery());
+    // El plan gratis de Cloudflare limita cada invocacion a 50 subrequests: se piden los
+    // proveedores por grupos (cada request al worker tiene su propio limite) hasta tener fuentes.
+    var PROV_GROUPS = [
+        "PoseidonHD,PelisJuanita,Cuevana,LaCartoons",
+        "Pelisflix1,Esplay,PelisPlus,SoloLatino",
+        "Cuevana3,PlPro,PelisPlusHD,Cinecalidad",
+        "OK.ru,Odysee,Dailymotion,Archive.org"
+    ];
+    var plusOff = SETTINGS && (SETTINGS.servidoresPlus === false || SETTINGS.servidoresPlus === "false");
+    var data = null, sources = [], seenUrls = {};
+    for (var gi = 0; gi < PROV_GROUPS.length; gi++) {
+        if (gi === PROV_GROUPS.length - 1 && plusOff) break;
+        var dg;
+        try { dg = getJson(apiPath + detailQuery() + "&prov=" + encodeURIComponent(PROV_GROUPS[gi])); }
+        catch (eg) { dbg("grupo " + gi + " fallo: " + eg); if (gi === 0 && !data) { data = null; } continue; }
+        if (!data) data = dg;
+        var part = buildSources(dg, durationSec(pickObj(dg)));
+        for (var pi = 0; pi < part.length; pi++) {
+            var pu = JSON.stringify(part[pi] && part[pi].url ? part[pi].url : part[pi]);
+            if (!seenUrls[pu]) { seenUrls[pu] = 1; sources.push(part[pi]); }
+        }
+        if (sources.length >= 3) break;
+    }
+    if (!data) data = getJson(apiPath + detailQuery());
     var obj = pickObj(data);
     var title = titleOf(obj) || id;
     var img = imageOf(obj);
     var duration = durationSec(obj);
 
-    var sources = buildSources(data, duration);
+    // OK.ru con la sesion de GrayJay (va primero). Si falla no rompe el resto.
+    if (okOn()) {
+        try {
+            var okRaw = okruSources(kind, id, season, episode);
+            if (okRaw.length) sources = buildSources(okRaw, duration).concat(sources);
+        } catch (eOk) { dbg("OK.ru fallo: " + eOk); }
+    }
+
     if (!sources.length) {
         var keys = isObj(data) ? Object.keys(data).join(",") : typeof data;
         var tail = "";
