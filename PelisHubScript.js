@@ -250,7 +250,8 @@ function walk(node, ctx, out, depth) {
     if (typeof node !== "object") return;
 
     if (typeof node.url === "string" && /^https?:\/\//i.test(node.url) && typeof node.type === "string" && /^(hls|mp4|dash|webm|m3u8|mkv)$/i.test(node.type)) {
-        var useP = SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true") && typeof node.proxyUrl === "string" && node.proxyUrl;
+        var forceProxy = /poseidonhd2|player\.php|\.m3u8/i.test(str(node.url)) || /poseidon/i.test(str(node.name) + str(ctx.name));
+        var useP = typeof node.proxyUrl === "string" && node.proxyUrl && (forceProxy || (SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true")));
         out.push({
             url: useP ? node.proxyUrl : node.url,
             name: str(first(node, ["name", "server", "label"], ctx.name)),
@@ -545,34 +546,13 @@ source.getContentDetails = function (url) {
         canonicalUrl = API + apiPath;
     }
 
-    // El plan gratis de Cloudflare limita cada invocacion a 50 subrequests: se piden los
-    // proveedores por grupos (cada request al worker tiene su propio limite) hasta tener fuentes.
-    var PROV_GROUPS = [
-        "PoseidonHD,PelisJuanita,Cuevana,LaCartoons",
-        "Pelisflix1,Esplay,PelisPlus,SoloLatino",
-        "Cuevana3,PlPro,PelisPlusHD,Cinecalidad",
-        "OK.ru,Odysee,Dailymotion,Archive.org"
-    ];
-    var plusOff = SETTINGS && (SETTINGS.servidoresPlus === false || SETTINGS.servidoresPlus === "false");
-    var data = null, sources = [], seenUrls = {};
-    for (var gi = 0; gi < PROV_GROUPS.length; gi++) {
-        if (gi === PROV_GROUPS.length - 1 && plusOff) break;
-        var dg;
-        try { dg = getJson(apiPath + detailQuery() + "&prov=" + encodeURIComponent(PROV_GROUPS[gi])); }
-        catch (eg) { dbg("grupo " + gi + " fallo: " + eg); if (gi === 0 && !data) { data = null; } continue; }
-        if (!data) data = dg;
-        var part = buildSources(dg, durationSec(pickObj(dg)));
-        for (var pi = 0; pi < part.length; pi++) {
-            var pu = JSON.stringify(part[pi] && part[pi].url ? part[pi].url : part[pi]);
-            if (!seenUrls[pu]) { seenUrls[pu] = 1; sources.push(part[pi]); }
-        }
-        if (sources.length >= 3) break;
-    }
-    if (!data) data = getJson(apiPath + detailQuery());
+    var data = getJson(apiPath + detailQuery());
     var obj = pickObj(data);
     var title = titleOf(obj) || id;
     var img = imageOf(obj);
     var duration = durationSec(obj);
+
+    var sources = buildSources(data, duration);
 
     // OK.ru con la sesion de GrayJay (va primero). Si falla no rompe el resto.
     if (okOn()) {
