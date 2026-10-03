@@ -1,0 +1,22 @@
+{
+  "name": "PelisHub API",
+  "description": "GrayJay source backed by the PelisHub Worker API.",
+  "author": "OpenAI",
+  "authorUrl": "https://openai.com/",
+  "sourceUrl": "https://pelishub.cheito55.workers.dev/grayjay/PelisHubConfig.json",
+  "repositoryUrl": "https://pelishub.cheito55.workers.dev/",
+  "scriptUrl": "./PelisHubScript.js",
+  "version": 1,
+  "iconUrl": "./icon.png",
+  "id": "8d1a0a2d-3e72-4f6d-9e2e-2d4f9e7d4b31",
+  "packages": ["Http"],
+  "allowEval": false,
+  "allowUrls": [
+    "pelishub.cheito55.workers.dev",
+    "ok.ru",
+    "onfilom.com",
+    "juanita.pelis",
+    "pelisjuanita.com",
+    "jkanime.net"
+  ]
+}
