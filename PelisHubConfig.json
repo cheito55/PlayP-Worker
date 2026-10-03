@@ -1,22 +1,32 @@
 {
-  "name": "PelisHub API",
-  "description": "GrayJay source backed by the PlayP-Worker API.",
+  "name": "PelisHub",
+  "description": "Source de GrayJay que consume el Worker PelisHub (peliculas y series).",
   "author": "cheito55",
   "authorUrl": "https://github.com/cheito55",
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
-  "version": 10,
-  "iconUrl": "./icon.png",
+  "version": 2,
   "id": "8d1a0a2d-3e72-4f6d-9e2e-2d4f9e7d4b31",
   "packages": ["Http"],
   "allowEval": false,
   "allowUrls": [
-    "pelishub.cheito55.workers.dev",
-    "ok.ru",
-    "onfilom.com",
-    "juanita.pelis",
-    "pelisjuanita.com",
-    "jkanime.net"
+    "pelishub.cheito55.workers.dev"
+  ],
+  "settings": [
+    {
+      "variable": "debugMode",
+      "name": "Modo debug",
+      "description": "Escribe en el log de GrayJay cada request al worker.",
+      "type": "Boolean",
+      "default": "false"
+    },
+    {
+      "variable": "useProxy",
+      "name": "Usar proxy del worker",
+      "description": "Pide al worker las fuentes via /proxy (util si el CDN rechaza a GrayJay).",
+      "type": "Boolean",
+      "default": "false"
+    }
   ]
 }
