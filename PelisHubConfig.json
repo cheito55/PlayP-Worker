@@ -6,7 +6,7 @@
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
-  "version": 7,
+  "version": 8,
   "id": "8d1a0a2d-3e72-4f6d-9e2e-2d4f9e7d4b31",
   "packages": [
     "Http"
