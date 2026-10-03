@@ -1,61 +1,44 @@
 {
   "name": "PelisHub",
-  "description": "Source de GrayJay que consume el Worker PelisHub (peliculas y series).",
+  "description": "Indexador de películas y series (catálogo TMDB). Las fuentes ya vienen resueltas desde un Cloudflare Worker.",
   "author": "cheito55",
   "authorUrl": "https://github.com/cheito55",
-  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubIndexConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
-  "scriptUrl": "./PelisHubScript.js",
-  "version": 15,
-  "id": "8d1a0a2d-3e72-4f6d-9e2e-2d4f9e7d4b31",
+  "scriptUrl": "./PelisHubIndexScript.js",
+  "version": 1,
+  "iconUrl": "./PlayP.jpg",
+  "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
+  "scriptSignature": "",
+  "scriptPublicKey": "",
   "packages": [
     "Http"
   ],
   "allowEval": false,
   "allowUrls": [
-    "pelishub.cheito55.workers.dev",
-    "ok.ru",
-    "odnoklassniki.ru",
-    "okcdn.ru",
-    "mycdn.me"
+    "everywhere"
   ],
   "settings": [
     {
-      "variable": "okruConLogin",
-      "name": "OK.ru con mi sesion",
-      "description": "Busca en OK.ru con las cookies de GrayJay (inicia sesion en ajustes del source).",
-      "type": "Boolean",
-      "default": "true"
+      "variable": "apiBase",
+      "name": "URL del Worker",
+      "description": "Ej: https://pelishub.TU-USUARIO.workers.dev (sin barra final).",
+      "type": "String",
+      "default": ""
+    },
+    {
+      "variable": "apiKey",
+      "name": "Clave de acceso (opcional)",
+      "description": "Solo si definiste el secret API_TOKEN en el Worker.",
+      "type": "String",
+      "default": ""
     },
     {
       "variable": "debugMode",
-      "name": "Modo debug",
-      "description": "Escribe en el log de GrayJay cada request al worker.",
-      "type": "Boolean",
-      "default": "false"
-    },
-    {
-      "variable": "servidoresPlus",
-      "name": "Servidores Plus",
-      "description": "Incluye OK.ru, Odysee, Dailymotion y Archive.org junto a los demas dominios.",
-      "type": "Boolean",
-      "default": "true"
-    },
-    {
-      "variable": "useProxy",
-      "name": "Usar proxy del worker",
-      "description": "Pide al worker las fuentes via /proxy (util si el CDN rechaza a GrayJay).",
+      "name": "Modo diagnóstico",
+      "description": "Pide el log del Worker y lo agrega al final de la descripción (también si no hay fuentes).",
       "type": "Boolean",
       "default": "false"
     }
-  ],
-  "authentication": {
-    "userAgent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-    "loginUrl": "https://ok.ru/",
-    "completionUrl": "https://ok.ru/feed",
-    "cookiesToFind": [
-      "AUTHCODE",
-      "JSESSIONID"
-    ]
-  }
+  ]
 }
