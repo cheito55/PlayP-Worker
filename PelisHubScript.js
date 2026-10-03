@@ -1,36 +1,33 @@
 /*
- * PelisHub API - GrayJay source
- * API base: https://pelishub.cheito55.workers.dev
+ * PelisHub - GrayJay source (cliente del Worker https://pelishub.cheito55.workers.dev)
  *
- * The API advertises:
- * /api/home?page=1
- * /api/search?q=texto[&extra=1]
- * /api/movie/:tmdbId
- * /api/tv/:tmdbId/:season/:episode
- * /api/show/:tmdbId
- * /api/juanita/search?q=
- * /api/juanita/movie/:slug
- * /api/juanita/show/:slug
- * /api/juanita/tv/:slug/:s/:e
- * /api/jk/search?q=
- * /api/jk/serie/:slug
- * /api/jk/ep/:slug/:n
- * /api/okru/plan...
- * /api/okru/hits
- * /api/okru/sources
- * /proxy?u=...
- *
- * The JSON parser below intentionally accepts several common response shapes
- * because the Worker can evolve independently of this GrayJay source.
+ * Endpoints del worker usados:
+ *   /api/home?page=N
+ *   /api/search?q=texto
+ *   /api/movie/:tmdbId
+ *   /api/show/:tmdbId              (ficha + temporadas/episodios)
+ *   /api/tv/:tmdbId/:season/:episode
  */
 
 var API = "https://pelishub.cheito55.workers.dev";
+var PLATFORM = "PelisHub";
 var CONFIG = null;
-var PLATFORM = "PelisHubAPI";
+var SETTINGS = {};
 
-function enc(s) {
-    return encodeURIComponent(String(s == null ? "" : s));
+/* ---------------------------------------------------------------- utils */
+
+function dbg(msg) {
+    if (SETTINGS && (SETTINGS.debugMode === true || SETTINGS.debugMode === "true")) {
+        try { log("[PelisHub] " + msg); } catch (e) {}
+    }
 }
+
+function fail(msg) {
+    if (typeof ScriptException !== "undefined") throw new ScriptException(msg);
+    throw new Error(msg);
+}
+
+function enc(s) { return encodeURIComponent(String(s == null ? "" : s)); }
 
 function str(v) {
     if (v == null) return "";
@@ -43,389 +40,408 @@ function num(v, d) {
     return isFinite(n) ? n : (d == null ? 0 : d);
 }
 
+function isObj(v) { return v && typeof v === "object" && !Array.isArray(v); }
+
 function first(obj, keys, fallback) {
     if (!obj || typeof obj !== "object") return fallback;
     for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+        var v = obj[keys[i]];
+        if (v !== undefined && v !== null && v !== "") return v;
     }
     return fallback;
 }
 
-function requestJson(url) {
-    var r = Http.get(url);
-    if (!r) throw new Error("PelisHub: empty HTTP response");
-    var body = "";
-    try {
-        if (r.body && typeof r.body.string === "function") body = r.body.string();
-        else if (typeof r.body === "string") body = r.body;
-        else if (r.body && typeof r.body.toString === "function") body = r.body.toString();
-    } catch (e) {
-        body = "";
+function getJson(path) {
+    var url = path.indexOf("http") === 0 ? path : API + path;
+    dbg("GET " + url);
+    var r = http.GET(url, { "Accept": "application/json" }, false);
+    if (!r || !r.isOk) fail("PelisHub: HTTP " + (r ? r.code : "sin respuesta") + " en " + url);
+    if (!r.body) fail("PelisHub: respuesta vacia en " + url);
+    var data;
+    try { data = JSON.parse(r.body); }
+    catch (e) { fail("PelisHub: la respuesta no es JSON (" + url + ")"); }
+    if (isObj(data) && data.error && !data.results && !data.items) {
+        fail("PelisHub: " + str(data.error));
     }
-    if (!body) throw new Error("PelisHub: empty response");
-    return JSON.parse(body);
+    return data;
 }
 
-function unwrap(data) {
+function detailQuery() {
+    var q = "?plus=1";
+    if (SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true")) q += "&proxy=1";
+    return q;
+}
+
+/* --------------------------------------------------- lectura de items */
+
+// Lista de items (home / search). Solo claves "de lista", nunca "sources".
+function listOf(data) {
     if (!data) return [];
     if (Array.isArray(data)) return data;
-
-    var keys = [
-        "results", "items", "data", "movies", "shows", "series",
-        "videos", "contents", "hits", "sources", "entries"
-    ];
-
+    var keys = ["results", "items", "data", "movies", "shows", "series", "contents", "entries"];
     for (var i = 0; i < keys.length; i++) {
         var v = data[keys[i]];
         if (Array.isArray(v)) return v;
-        if (v && typeof v === "object") {
-            var nested = unwrap(v);
+        if (isObj(v)) {
+            var nested = listOf(v);
             if (nested.length) return nested;
         }
     }
+    return [];
+}
 
-    // A single object is also a valid item.
-    return [data];
+// Objeto principal de un detalle (movie / show / episodio).
+function pickObj(data) {
+    if (Array.isArray(data)) return data.length ? pickObj(data[0]) : {};
+    if (!isObj(data)) return {};
+    var keys = ["movie", "show", "episode", "item", "result", "data"];
+    for (var i = 0; i < keys.length; i++) {
+        var v = data[keys[i]];
+        if (isObj(v) && (titleOf(v) || idOf(v))) return v;
+    }
+    return data;
 }
 
 function titleOf(x) {
-    if (!x || typeof x !== "object") return "";
-    return str(first(x, [
-        "title", "name", "original_title", "originalName",
-        "displayName", "label", "movieTitle", "showTitle"
-    ], ""));
+    if (!isObj(x)) return "";
+    return str(first(x, ["title", "name", "original_title", "originalName", "original_name", "displayName", "label"], ""));
 }
 
 function idOf(x) {
-    if (!x || typeof x !== "object") return "";
-    var v = first(x, [
-        "tmdbId", "tmdb_id", "id", "movieId", "movie_id",
-        "showId", "show_id", "videoId", "video_id", "slug"
-    ], "");
-    if (v && typeof v === "object") {
-        v = first(v, ["id", "value", "tmdbId", "tmdb_id"], "");
-    }
+    if (!isObj(x)) return "";
+    var v = first(x, ["tmdbId", "tmdb_id", "id", "movieId", "showId", "videoId", "slug"], "");
+    if (isObj(v)) v = first(v, ["id", "value", "tmdbId"], "");
     return str(v);
 }
 
 function typeOf(x) {
     var t = str(first(x, ["type", "mediaType", "media_type", "kind", "contentType"], "")).toLowerCase();
-    if (t.indexOf("tv") >= 0 || t.indexOf("serie") >= 0 || t.indexOf("show") >= 0 || t.indexOf("series") >= 0) return "tv";
+    if (t.indexOf("tv") >= 0 || t.indexOf("serie") >= 0 || t.indexOf("show") >= 0) return "tv";
     return "movie";
 }
 
 function imageOf(x) {
-    if (!x || typeof x !== "object") return "";
-    var v = first(x, [
-        "poster", "posterUrl", "poster_url", "poster_path",
-        "thumbnail", "thumbnailUrl", "thumbnail_url",
-        "image", "imageUrl", "cover", "coverUrl", "backdrop"
-    ], "");
-    if (v && typeof v === "object") {
-        v = first(v, ["url", "src", "path"], "");
-    }
+    if (!isObj(x)) return "";
+    var v = first(x, ["poster", "posterUrl", "poster_url", "poster_path", "thumbnail", "thumbnailUrl",
+        "image", "imageUrl", "cover", "backdrop", "backdrop_path", "still_path"], "");
+    if (isObj(v)) v = first(v, ["url", "src", "path"], "");
     v = str(v);
     if (v.indexOf("//") === 0) return "https:" + v;
+    if (v.charAt(0) === "/") return "https://image.tmdb.org/t/p/w500" + v; // poster_path de TMDB
     return v;
 }
 
 function descriptionOf(x) {
-    if (!x || typeof x !== "object") return "";
+    if (!isObj(x)) return "";
     return str(first(x, ["overview", "description", "synopsis", "plot", "summary"], ""));
 }
 
-function durationOf(x) {
-    if (!x || typeof x !== "object") return -1;
-    return num(first(x, ["duration", "durationSeconds", "duration_seconds", "runtime"], -1), -1);
-}
-
-function normalizeDuration(v) {
-    var n = num(v, -1);
-    if (n < 0) return -1;
-    // Runtime is commonly minutes; seconds are usually much larger.
-    if (n > 0 && n < 1000) return Math.round(n * 60);
-    return Math.round(n);
-}
-
-function normalizeName(s) {
-    return str(s).toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-function scoreMatch(query, title) {
-    var q = normalizeName(query);
-    var t = normalizeName(title);
-    if (!q || !t) return 0;
-    if (q === t) return 100;
-    if (t.indexOf(q) === 0) return 90;
-    if (t.indexOf(q) >= 0) return 80;
-    var qa = q.split(" ");
-    var hit = 0;
-    for (var i = 0; i < qa.length; i++) if (t.indexOf(qa[i]) >= 0) hit++;
-    return Math.round(60 * hit / Math.max(1, qa.length));
+function durationSec(x) {
+    var n = num(first(x, ["duration", "durationSeconds", "runtime"], -1), -1);
+    if (n <= 0) return -1;
+    return n < 1000 ? Math.round(n * 60) : Math.round(n); // runtime suele venir en minutos
 }
 
 function makeThumbs(url) {
-    var arr = [];
-    if (url) {
-        arr.push(new Thumbnail(url, 720));
-        arr.push(new Thumbnail(url, 1080));
-    }
-    return new Thumbnails(arr);
+    return new Thumbnails(url ? [new Thumbnail(url, 720)] : []);
+}
+
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+function showAuthor(id, name, img) {
+    return new PlatformAuthorLink(
+        new PlatformID(PLATFORM, "show:" + id, CONFIG.id),
+        name || "Serie",
+        API + "/api/show/" + enc(id),
+        img || ""
+    );
+}
+
+function genericAuthor(img) {
+    return new PlatformAuthorLink(
+        new PlatformID(PLATFORM, "pelishub", CONFIG.id),
+        "PelisHub",
+        API,
+        img || ""
+    );
 }
 
 function makeVideo(item) {
     var title = titleOf(item) || "PelisHub";
-    var id = idOf(item) || title;
+    var id = idOf(item);
+    if (!id) return null;
     var kind = typeOf(item);
     var img = imageOf(item);
-    var duration = normalizeDuration(durationOf(item));
 
-    // The URL is the API detail endpoint, so getContentDetails can resolve it later.
-    var url = item.url || item.detailUrl || item.detail_url || "";
-    if (!url) {
-        if (kind === "tv") url = API + "/api/show/" + enc(id);
-        else url = API + "/api/movie/" + enc(id);
-    }
+    // Solo se acepta una URL que apunte a nuestra propia API (las URLs de webs externas rompian isContentDetailsUrl).
+    var url = str(first(item, ["url", "detailUrl"], ""));
+    if (url.indexOf(API + "/api/") !== 0) url = "";
+    if (!url) url = kind === "tv" ? API + "/api/tv/" + enc(id) + "/1/1" : API + "/api/movie/" + enc(id);
 
     return new PlatformVideo({
         id: new PlatformID(PLATFORM, kind + ":" + id, CONFIG.id),
         name: title,
         thumbnails: makeThumbs(img),
-        author: new PlatformAuthorLink(
-            new PlatformID(PLATFORM, "pelishub", CONFIG.id),
-            "PelisHub",
-            API,
-            img
-        ),
+        author: kind === "tv" ? showAuthor(id, title, img) : genericAuthor(img),
         uploadDate: 0,
-        duration: duration,
+        duration: durationSec(item),
         viewCount: num(first(item, ["viewCount", "views"], -1), -1),
         url: url,
         isLive: false
     });
 }
 
-function uniqueItems(items, query) {
-    var out = [];
-    var seen = {};
-    items.sort(function(a, b) {
-        return scoreMatch(query, titleOf(b)) - scoreMatch(query, titleOf(a));
-    });
-
+// Un solo item por tipo+id (NO por titulo: "Pinocho" 1940/2019/2022 son distintos).
+function toVideos(items) {
+    var out = [], seen = {};
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        var t = normalizeName(titleOf(it));
-        if (!t) continue;
-        var k = t + "|" + typeOf(it);
-        if (seen[k]) continue;
-        seen[k] = true;
-        out.push(it);
+        if (!isObj(it)) continue;
+        var key = typeOf(it) + ":" + idOf(it);
+        if (seen[key]) continue;
+        seen[key] = true;
+        try {
+            var v = makeVideo(it);
+            if (v) out.push(v);
+        } catch (e) { dbg("item descartado: " + e); }
     }
     return out;
 }
 
-function extractStrings(root, out, depth) {
-    if (!root || depth > 7) return;
-    if (typeof root === "string") {
-        if (/^https?:\/\//i.test(root)) out.push(root);
-        return;
-    }
-    if (typeof root !== "object") return;
+/* ------------------------------------------------ fuentes reproducibles */
 
-    if (Array.isArray(root)) {
-        for (var i = 0; i < root.length; i++) extractStrings(root[i], out, depth + 1);
-        return;
-    }
+var MEDIA_RE = /\.(m3u8|mp4|m4v|webm|mov|mkv)(\?|#|$)/i;
+var SKIP_KEYS = { debug: 1, trace: 1, log: 1, logs: 1, errors: 1, error: 1, timings: 1 };
 
-    for (var k in root) {
-        if (!root.hasOwnProperty(k)) continue;
-        var v = root[k];
-        if (typeof v === "string") {
-            if (/^https?:\/\//i.test(v)) out.push(v);
-        } else {
-            extractStrings(v, out, depth + 1);
+function innerUrl(u) {
+    if (u.indexOf("/proxy") >= 0) {
+        var m = u.match(/[?&]u=([^&]+)/);
+        if (m) { try { return decodeURIComponent(m[1]); } catch (e) {} }
+    }
+    return u;
+}
+
+function looksMedia(u) {
+    var inner = innerUrl(u);
+    return MEDIA_RE.test(inner) || inner.toLowerCase().indexOf(".m3u8") >= 0 || u.indexOf(API + "/proxy") === 0;
+}
+
+function hostOf(u) {
+    var m = String(u).match(/^https?:\/\/([^\/?#]+)/i);
+    return m ? m[1].replace(/^www\./, "") : "Servidor";
+}
+
+function walk(node, ctx, out, depth) {
+    if (node == null || depth > 8) return;
+    if (typeof node === "string") {
+        if (/^https?:\/\//i.test(node) && looksMedia(node)) {
+            out.push({ url: node, name: ctx.name, quality: ctx.quality, lang: ctx.lang, headers: ctx.headers });
         }
+        return;
+    }
+    if (Array.isArray(node)) {
+        for (var i = 0; i < node.length; i++) walk(node[i], ctx, out, depth + 1);
+        return;
+    }
+    if (typeof node !== "object") return;
+
+    var c2 = {
+        name: str(first(node, ["server", "serverName", "provider", "host", "label", "name"], ctx.name)),
+        quality: str(first(node, ["quality", "resolution", "res"], ctx.quality)),
+        lang: str(first(node, ["lang", "language", "idioma", "audio"], ctx.lang)),
+        headers: isObj(node.headers) ? node.headers : (isObj(node.header) ? node.header : ctx.headers)
+    };
+    for (var k in node) {
+        if (!node.hasOwnProperty(k) || SKIP_KEYS[k]) continue;
+        walk(node[k], c2, out, depth + 1);
     }
 }
 
-function collectMediaUrls(data) {
-    var raw = [];
-    extractStrings(data, raw, 0);
-    var out = [];
-    var seen = {};
+function buildSource(s, duration) {
+    var label = s.name || hostOf(innerUrl(s.url));
+    if (s.quality) label += " " + s.quality;
+    if (s.lang) label += " [" + s.lang + "]";
 
-    for (var i = 0; i < raw.length; i++) {
-        var u = raw[i];
-        var low = u.toLowerCase();
+    var inner = innerUrl(s.url).toLowerCase();
+    var mod = (s.headers && Object.keys(s.headers).length) ? { headers: s.headers } : null;
 
-        // Skip ordinary web pages, artwork and API URLs.
-        var media =
-            /\.(m3u8|mp4|m4v|webm|mov)(\?|#|$)/i.test(low) ||
-            low.indexOf(".m3u8?") >= 0 ||
-            low.indexOf("/video/") >= 0 && low.indexOf("ok.ru") >= 0;
-
-        if (!media) continue;
-        if (u.indexOf(API + "/api/") === 0) continue;
-
-        if (!seen[u]) {
-            seen[u] = true;
-            out.push(u);
-        }
-    }
-    return out;
-}
-
-function sourceForUrl(u, duration) {
-    var low = u.toLowerCase();
-
-    if (/\.m3u8(\?|#|$)/i.test(low) || low.indexOf(".m3u8?") >= 0) {
-        return new HLSSource({
-            name: "HLS",
-            duration: duration > 0 ? duration : undefined,
-            url: u,
-            priority: true,
-            language: "Unknown"
-        });
+    if (inner.indexOf(".m3u8") >= 0) {
+        var h = { name: label, url: s.url, duration: duration > 0 ? duration : 0, priority: false };
+        if (mod) h.requestModifier = mod;
+        return new HLSSource(h);
     }
 
-    return new VideoUrlSource({
+    var hm = String(s.quality).match(/(\d{3,4})p/);
+    var d = {
+        name: label,
+        url: s.url,
         width: 0,
-        height: 0,
-        container: "video/mp4",
+        height: hm ? Number(hm[1]) : 0,
+        container: inner.indexOf(".webm") >= 0 ? "video/webm" : "video/mp4",
         codec: "",
-        name: "Direct",
         bitrate: 0,
-        duration: duration > 0 ? duration : -1,
-        url: u
-    });
-}
-
-function detailMeta(data, fallbackId, fallbackType) {
-    var items = unwrap(data);
-    var x = items.length ? items[0] : {};
-    return {
-        item: x,
-        title: titleOf(x) || fallbackId,
-        id: idOf(x) || fallbackId,
-        type: typeOf(x) || fallbackType || "movie",
-        image: imageOf(x),
-        description: descriptionOf(x),
-        duration: normalizeDuration(durationOf(x))
+        duration: duration > 0 ? duration : 0
     };
+    if (mod) d.requestModifier = mod;
+    return new VideoUrlSource(d);
 }
 
-function detailUrlInfo(url) {
-    var m = String(url || "").match(/\/api\/(movie|show|tv)\/([^/?#]+)(?:\/(\d+)\/(\d+))?/i);
-    if (!m) return null;
-    return {
-        endpoint: m[1].toLowerCase(),
-        id: decodeURIComponent(m[2]),
-        season: m[3] ? Number(m[3]) : 0,
-        episode: m[4] ? Number(m[4]) : 0
-    };
+function buildSources(data, duration) {
+    var raw = [];
+    walk(data, { name: "", quality: "", lang: "", headers: null }, raw, 0);
+
+    var out = [], seen = {};
+    for (var i = 0; i < raw.length; i++) {
+        var key = innerUrl(raw[i].url);
+        if (seen[key]) continue;
+        seen[key] = true;
+        try { out.push(buildSource(raw[i], duration)); } catch (e) { dbg("fuente descartada: " + e); }
+    }
+    dbg("fuentes reproducibles: " + out.length);
+    return out;
 }
 
-function fetchDetail(info) {
-    var url;
+/* -------------------------------------------------------------- series */
 
-    if (info.endpoint === "movie") {
-        url = API + "/api/movie/" + enc(info.id) + "?plus=1";
-    } else if (info.endpoint === "tv" && info.season > 0 && info.episode > 0) {
-        url = API + "/api/tv/" + enc(info.id) + "/" + info.season + "/" + info.episode + "?plus=1";
-    } else {
-        url = API + "/api/show/" + enc(info.id) + "?plus=1";
+function episodesOf(show) {
+    var out = [];
+    function add(s, e, obj) {
+        out.push({ s: s, e: e, name: obj ? titleOf(obj) : "", img: obj ? imageOf(obj) : "" });
+    }
+    function fromSeason(sn, eps, count) {
+        if (Array.isArray(eps)) {
+            for (var j = 0; j < eps.length; j++) {
+                var ep = eps[j];
+                var en = isObj(ep) ? num(first(ep, ["episode_number", "episodeNumber", "episode", "number", "n"], j + 1), j + 1) : num(ep, j + 1);
+                add(sn, en, isObj(ep) ? ep : null);
+            }
+        } else {
+            for (var c = 1; c <= count; c++) add(sn, c, null);
+        }
     }
 
-    return requestJson(url);
+    var seasons = first(show, ["seasons", "temporadas"], null);
+    if (Array.isArray(seasons)) {
+        for (var i = 0; i < seasons.length; i++) {
+            var se = seasons[i];
+            if (!isObj(se)) continue;
+            var sn = num(first(se, ["season_number", "seasonNumber", "season", "number", "n"], i + 1), i + 1);
+            fromSeason(sn, first(se, ["episodes", "episodios"], null), num(first(se, ["episode_count", "episodeCount", "count"], 0), 0));
+        }
+    } else if (isObj(seasons)) { // { "1": [ep, ep], "2": [...] }
+        for (var key in seasons) {
+            if (!seasons.hasOwnProperty(key)) continue;
+            fromSeason(num(key, 1), seasons[key], num(seasons[key], 0));
+        }
+    }
+
+    if (!out.length) { // lista plana de episodios con season/episode
+        var flat = first(show, ["episodes", "episodios"], null);
+        if (Array.isArray(flat)) {
+            for (var f = 0; f < flat.length; f++) {
+                var ef = flat[f];
+                if (!isObj(ef)) continue;
+                add(num(first(ef, ["season_number", "season", "temporada"], 1), 1),
+                    num(first(ef, ["episode_number", "episode", "number", "n"], f + 1), f + 1), ef);
+            }
+        }
+    }
+
+    if (!out.length) add(1, 1, null); // sin datos: al menos S01E01
+
+    // Temporada 0 (especiales) solo si no hay otra cosa
+    var real = out.filter(function (x) { return x.s > 0; });
+    if (real.length) out = real;
+    out.sort(function (a, b) { return a.s - b.s || a.e - b.e; });
+    return out;
 }
 
-source.enable = function(conf) {
+/* --------------------------------------------------------------- source */
+
+source.enable = function (conf, settings, savedState) {
     CONFIG = conf;
+    SETTINGS = settings || {};
 };
 
-source.getHome = function(continuationToken) {
+source.getHome = function (continuationToken) {
     var page = continuationToken ? Number(continuationToken) : 1;
     if (!page || page < 1) page = 1;
-
-    var data = requestJson(API + "/api/home?page=" + page + "&mode=fast&extra=1");
-    var items = unwrap(data);
-    var videos = [];
-
-    for (var i = 0; i < items.length; i++) {
-        try { videos.push(makeVideo(items[i])); } catch (e) {}
-    }
-
-    return new PelisHubHomePager(videos, items.length > 0, page + 1);
+    var items = listOf(getJson("/api/home?page=" + page + "&mode=fast&extra=1"));
+    var videos = toVideos(items);
+    return new PelisHubHomePager(videos, videos.length > 0 && page < 10, page + 1);
 };
 
-source.searchSuggestions = function(query) {
-    return query ? [query] : [];
+source.searchSuggestions = function (query) { return []; };
+
+source.getSearchCapabilities = function () {
+    return { types: [Type.Feed.Mixed], sorts: [], filters: [] };
 };
 
-source.getSearchCapabilities = function() {
-    return {
-        types: [Type.Feed.Mixed],
-        sorts: []
-    };
-};
-
-source.search = function(query, type, order, filters, continuationToken) {
+source.search = function (query, type, order, filters, continuationToken) {
     query = str(query).trim();
-    if (!query) return new PelisHubSearchPager([], false, { query: query, page: 1 });
+    if (!query) return new PelisHubSearchPager([], false, {});
+    // Sin filtrar por parecido de titulo: el worker ya busca en TMDB y el titulo puede venir en otro idioma.
+    var items = listOf(getJson("/api/search?q=" + enc(query) + "&extra=1&mode=fast"));
+    return new PelisHubSearchPager(toVideos(items), false, {});
+};
 
-    var page = continuationToken ? Number(continuationToken) : 1;
-    if (!page || page < 1) page = 1;
+source.isContentDetailsUrl = function (url) {
+    return /^https:\/\/pelishub\.cheito55\.workers\.dev\/api\/(movie|show|tv)\//i.test(str(url));
+};
 
-    var data = requestJson(API + "/api/search?q=" + enc(query) + "&extra=1&mode=fast");
-    var items = uniqueItems(unwrap(data), query);
+source.getContentDetails = function (url) {
+    var m = str(url).match(/\/api\/(movie|show|tv)\/([^\/?#]+)(?:\/(\d+)\/(\d+))?/i);
+    if (!m) fail("PelisHub: URL de detalle no soportada");
 
-    // Keep the first result per title/type and prefer close title matches.
-    var videos = [];
-    for (var i = 0; i < items.length; i++) {
-        if (scoreMatch(query, titleOf(items[i])) < 35) continue;
-        try { videos.push(makeVideo(items[i])); } catch (e) {}
+    var endpoint = m[1].toLowerCase();
+    var id = decodeURIComponent(m[2]);
+    var season = m[3] ? Number(m[3]) : 1;
+    var episode = m[4] ? Number(m[4]) : 1;
+
+    var apiPath, kind, canonicalUrl;
+    if (endpoint === "movie") {
+        kind = "movie";
+        apiPath = "/api/movie/" + enc(id);
+        canonicalUrl = API + apiPath;
+    } else { // "show" o "tv": una serie siempre se reproduce como episodio (por defecto S01E01)
+        kind = "tv";
+        apiPath = "/api/tv/" + enc(id) + "/" + season + "/" + episode;
+        canonicalUrl = API + apiPath;
     }
 
-    return new PelisHubSearchPager(videos, false, { query: query, page: page });
-};
+    var data = getJson(apiPath + detailQuery());
+    var obj = pickObj(data);
+    var title = titleOf(obj) || id;
+    var img = imageOf(obj);
+    var duration = durationSec(obj);
 
-source.isContentDetailsUrl = function(url) {
-    return /^https:\/\/pelishub\.cheito55\.workers\.dev\/api\/(movie|show|tv)\//i.test(String(url || ""));
-};
+    var sources = buildSources(data, duration);
+    if (!sources.length) {
+        var keys = isObj(data) ? Object.keys(data).join(",") : typeof data;
+        fail("PelisHub: sin fuentes reproducibles para '" + title + "'" + (kind === "tv" ? " S" + pad2(season) + "E" + pad2(episode) : "") +
+            " (claves de respuesta: " + keys + ")");
+    }
 
-source.getContentDetails = function(url) {
-    var info = detailUrlInfo(url);
-    if (!info) throw new Error("PelisHub: unsupported details URL");
-
-    var data = fetchDetail(info);
-    var meta = detailMeta(data, info.id, info.endpoint === "tv" ? "tv" : "movie");
-    var media = collectMediaUrls(data);
-    var sources = [];
-
-    for (var i = 0; i < media.length; i++) {
-        try { sources.push(sourceForUrl(media[i], meta.duration)); } catch (e) {}
+    var name = title, author;
+    if (kind === "tv") {
+        var showName = str(first(obj, ["showTitle", "show_title", "seriesTitle", "show_name"], ""));
+        name = (showName || title) + " S" + pad2(season) + "E" + pad2(episode) + (showName && title !== showName ? " - " + title : "");
+        author = showAuthor(id, showName || title, img);
+    } else {
+        author = genericAuthor(img);
     }
 
     return new PlatformVideoDetails({
-        id: new PlatformID(PLATFORM, meta.type + ":" + meta.id, CONFIG.id),
-        name: meta.title,
-        thumbnails: makeThumbs(meta.image),
-        author: new PlatformAuthorLink(
-            new PlatformID(PLATFORM, "pelishub", CONFIG.id),
-            "PelisHub",
-            API,
-            meta.image
-        ),
+        id: new PlatformID(PLATFORM, kind === "tv" ? "tv:" + id + ":" + season + ":" + episode : "movie:" + id, CONFIG.id),
+        name: name,
+        thumbnails: makeThumbs(img),
+        author: author,
         uploadDate: 0,
-        duration: meta.duration,
+        duration: duration,
         viewCount: -1,
-        url: url,
+        url: canonicalUrl,
         isLive: false,
-        description: meta.description,
+        description: descriptionOf(obj),
         video: new VideoSourceDescriptor(sources),
         live: null,
         rating: null,
@@ -433,14 +449,65 @@ source.getContentDetails = function(url) {
     });
 };
 
-source.isChannelUrl = function(url) { return false; };
-source.getChannel = function(url) { return null; };
-source.getChannelCapabilities = function() {
-    return { types: [], sorts: [] };
+/* ------------------------------------- canal = serie (lista de episodios) */
+
+source.isChannelUrl = function (url) {
+    return /^https:\/\/pelishub\.cheito55\.workers\.dev\/api\/show\//i.test(str(url));
 };
-source.getChannelContents = function(url, type, order, filters, continuationToken) {
-    return new PelisHubSearchPager([], false, {});
+
+function showIdFromUrl(url) {
+    var m = str(url).match(/\/api\/show\/([^\/?#]+)/i);
+    if (!m) fail("PelisHub: URL de serie no valida");
+    return decodeURIComponent(m[1]);
+}
+
+source.getChannel = function (url) {
+    var id = showIdFromUrl(url);
+    var obj = pickObj(getJson("/api/show/" + enc(id)));
+    var img = imageOf(obj);
+    return new PlatformChannel({
+        id: new PlatformID(PLATFORM, "show:" + id, CONFIG.id),
+        name: titleOf(obj) || id,
+        thumbnail: img,
+        banner: null,
+        subscribers: -1,
+        description: descriptionOf(obj),
+        url: API + "/api/show/" + enc(id),
+        links: {}
+    });
 };
+
+source.getChannelCapabilities = function () {
+    return { types: [Type.Feed.Mixed], sorts: [], filters: [] };
+};
+
+source.getChannelContents = function (url, type, order, filters, continuationToken) {
+    var id = showIdFromUrl(url);
+    var obj = pickObj(getJson("/api/show/" + enc(id)));
+    var showName = titleOf(obj) || id;
+    var img = imageOf(obj);
+    var eps = episodesOf(obj);
+    var videos = [];
+
+    for (var i = 0; i < eps.length; i++) {
+        var ep = eps[i];
+        var label = showName + " S" + pad2(ep.s) + "E" + pad2(ep.e) + (ep.name ? " - " + ep.name : "");
+        videos.push(new PlatformVideo({
+            id: new PlatformID(PLATFORM, "tv:" + id + ":" + ep.s + ":" + ep.e, CONFIG.id),
+            name: label,
+            thumbnails: makeThumbs(ep.img || img),
+            author: showAuthor(id, showName, img),
+            uploadDate: 0,
+            duration: -1,
+            viewCount: -1,
+            url: API + "/api/tv/" + enc(id) + "/" + ep.s + "/" + ep.e,
+            isLive: false
+        }));
+    }
+    return new PelisHubSearchPager(videos, false, {});
+};
+
+/* --------------------------------------------------------------- pagers */
 
 class PelisHubHomePager extends VideoPager {
     constructor(results, hasMore, page) {
@@ -456,12 +523,6 @@ class PelisHubSearchPager extends VideoPager {
         super(results, hasMore, context || {});
     }
     nextPage() {
-        return source.search(
-            this.context.query,
-            null,
-            null,
-            null,
-            this.context.page
-        );
+        return new PelisHubSearchPager([], false, {});
     }
 }
