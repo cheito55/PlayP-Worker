@@ -68,7 +68,8 @@ function getJson(path) {
 
 function detailQuery() {
     var q = "?mode=" + ((SETTINGS && SETTINGS.mode) || "fast");
-    if (SETTINGS && (SETTINGS.servidoresPlus === true || SETTINGS.servidoresPlus === "true")) q += "&plus=1";
+    var plusOff = SETTINGS && (SETTINGS.servidoresPlus === false || SETTINGS.servidoresPlus === "false");
+    q += plusOff ? "&plus=0" : "&plus=1";
     if (SETTINGS && (SETTINGS.useProxy === true || SETTINGS.useProxy === "true")) q += "&proxy=1";
     if (SETTINGS && (SETTINGS.debugMode === true || SETTINGS.debugMode === "true")) q += "&debug=1";
     return q;
