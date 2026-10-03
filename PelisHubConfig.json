@@ -3,7 +3,7 @@
   "description": "GrayJay source backed by the PlayP-Worker API.",
   "author": "cheito55",
   "authorUrl": "https://github.com/cheito55",
-  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
   "version": 10,
