@@ -1,0 +1,30 @@
+{
+  "name": "PelisHub Worker",
+  "description": "TEST v12 - diagnostico de carga",
+  "author": "cheito55",
+  "authorUrl": "https://github.com/cheito55",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.json",
+  "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
+  "scriptUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHub_Worker.js",
+  "version": 12,
+  "iconUrl": "",
+  "id": "c8b3f5d2-4e6a-5f9b-0d37-2a1e8b6c9f45",
+  "scriptSignature": "",
+  "scriptPublicKey": "",
+  "packages": [
+    "Http"
+  ],
+  "allowEval": false,
+  "allowUrls": [
+    "everywhere"
+  ],
+  "settings": [
+    {
+      "variable": "apiBase",
+      "name": "URL del Worker",
+      "description": "https://pelishub.cheito55.workers.dev",
+      "type": "String",
+      "default": "https://pelishub.cheito55.workers.dev"
+    }
+  ]
+}
