@@ -47,14 +47,14 @@
       "name": "OK.ru con mi sesión",
       "description": "Busca videos en OK.ru usando la sesión iniciada en este source",
       "type": "Boolean",
-      "default": true
+      "default": "true"
     },
     {
       "variable": "servidoresPlus",
       "name": "Servidores Plus",
       "description": "Odysee + Dailymotion + Archive.org primero",
       "type": "Boolean",
-      "default": false
+      "default": "false"
     },
     {
       "variable": "serverMode",
@@ -73,14 +73,14 @@
       "name": "Sitios extra",
       "description": "Catálogo PelisJuanita/JKAnime en la búsqueda + sitios WordPress extra",
       "type": "Boolean",
-      "default": false
+      "default": "false"
     },
     {
       "variable": "debugMode",
       "name": "Modo diagnóstico",
       "description": "Muestra el log del worker y de OK.ru en la descripción",
       "type": "Boolean",
-      "default": false
+      "default": "false"
     }
   ]
 }
