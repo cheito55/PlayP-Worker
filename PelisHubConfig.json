@@ -6,7 +6,7 @@
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubIndexConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubIndexScript.js",
-  "version": 2,
+  "version": 3,
   "iconUrl": "./PlayP.jpg",
   "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
   "scriptSignature": "",
