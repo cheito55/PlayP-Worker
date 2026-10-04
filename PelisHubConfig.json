@@ -3,7 +3,7 @@
   "description": "Indexador de películas y series (catálogo TMDB). Las fuentes ya vienen resueltas desde un Cloudflare Worker.",
   "author": "cheito55",
   "authorUrl": "https://github.com/cheito55",
-  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubIndexConfig.json",
+  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubIndexScript.js",
   "version": 3,
