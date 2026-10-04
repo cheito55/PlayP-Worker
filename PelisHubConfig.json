@@ -1,44 +1,10 @@
 {
-  "name": "PelisHub",
-  "description": "Indexador de películas y series (catálogo TMDB). Las fuentes ya vienen resueltas desde un Cloudflare Worker.",
-  "author": "cheito55",
-  "authorUrl": "https://github.com/cheito55",
-  "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
-  "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
-  "scriptUrl": "./PelisHubScript.js",
-  "version": 3,
-  "iconUrl": "./PlayP.jpg",
-  "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e99",
-  "scriptSignature": "",
-  "scriptPublicKey": "",
-  "packages": [
-    "Http"
-  ],
-  "allowEval": false,
-  "allowUrls": [
-    "everywhere"
-  ],
+  "name": "PelisHub (Backend Cloud)",
+  "sourceUrl": "https://pelishub.ai.studio/api/grayjay/config.json",
+  "scriptUrl": "https://pelishub.ai.studio/api/grayjay/script.js",
+  "version": 14,
+  "packages": ["Http"],
   "settings": [
-    {
-      "variable": "apiBase",
-      "name": "URL del Worker",
-      "description": "https://pelishub.cheito55.workers.dev",
-      "type": "String",
-      "default": ""
-    },
-    {
-      "variable": "apiKey",
-      "name": "Clave de acceso (opcional)",
-      "description": "Solo si definiste el secret API_TOKEN en el Worker.",
-      "type": "String",
-      "default": ""
-    },
-    {
-      "variable": "debugMode",
-      "name": "Modo diagnóstico",
-      "description": "Pide el log del Worker y lo agrega al final de la descripción (también si no hay fuentes).",
-      "type": "Boolean",
-      "default": "false"
-    }
+    { "variable": "servidoresPlus", "default": "true" }
   ]
 }
