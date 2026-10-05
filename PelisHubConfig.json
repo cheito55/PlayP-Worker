@@ -18,6 +18,22 @@
   "allowUrls": [
     "everywhere"
   ],
+  {
+  "packages": [
+    "Http",
+    "DOMParser",
+    "Utilities"
+  ],
+  "allowEval": false,
+  "allowUrls": [
+    "everywhere",
+    "ok.ru",
+    "www.ok.ru",
+    "m.ok.ru",
+    "mobile.ok.ru",
+    "okcdn.ru",
+    "www.okcdn.ru"
+  ],
   "authentication": {
     "loginUrl": "https://m.ok.ru/dk?st.cmd=anonymMain",
     "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36",
@@ -31,6 +47,9 @@
       "m.ok.ru",
       "mobile.ok.ru"
     ],
+    "loginWarning": "NO uses Entrar con Google. Google bloquea el navegador interno de GrayJay. Entra con telefono o email y la contrasena de OK.ru."
+  }
+},
   "settings": [
     {
       "variable": "servidoresPlus",
