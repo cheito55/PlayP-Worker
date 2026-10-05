@@ -6,19 +6,11 @@
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
-"version": 21,
+  "version": 22,
   "iconUrl": "./PlayP.jpg",
   "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e34",
   "scriptSignature": "",
   "scriptPublicKey": "",
-  "packages": [
-    "Http"
-  ],
-  "allowEval": false,
-  "allowUrls": [
-    "everywhere"
-  ],
-  {
   "packages": [
     "Http",
     "DOMParser",
@@ -48,8 +40,7 @@
       "mobile.ok.ru"
     ],
     "loginWarning": "NO uses Entrar con Google. Google bloquea el navegador interno de GrayJay. Entra con telefono o email y la contrasena de OK.ru."
-  }
-},
+  },
   "settings": [
     {
       "variable": "servidoresPlus",
