@@ -6,7 +6,7 @@
   "sourceUrl": "https://raw.githubusercontent.com/cheito55/PlayP-Worker/main/PelisHubConfig.json",
   "repositoryUrl": "https://github.com/cheito55/PlayP-Worker",
   "scriptUrl": "./PelisHubScript.js",
-"version": 19,
+"version": 21,
   "iconUrl": "./PlayP.jpg",
   "id": "b7a2e4c1-3d5f-4e8a-9c26-1f0d7a5b8e34",
   "scriptSignature": "",
@@ -19,20 +19,18 @@
     "everywhere"
   ],
   "authentication": {
-    "userAgent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-    "loginUrl": "https://ok.ru/dk?st.cmd=anonymLogin",
-    "completionUrl": "https://ok.ru/",
+    "loginUrl": "https://m.ok.ru/dk?st.cmd=anonymMain",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36",
     "cookiesToFind": [
-      "JSESSIONID",
-      "AUTHCODE",
-      "domain_sid",
-      "AUTH",
-      "user_id",
-      "GDC",
-      "refplace",
-      "portal_sid"
-    ]
-  },
+      "AUTHCODE"
+    ],
+    "cookiesExclOthers": false,
+    "allowedDomains": [
+      "ok.ru",
+      "www.ok.ru",
+      "m.ok.ru",
+      "mobile.ok.ru"
+    ],
   "settings": [
     {
       "variable": "servidoresPlus",
