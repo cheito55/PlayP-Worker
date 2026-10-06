@@ -1,5 +1,5 @@
 /*
- * StreamflixHub v1.8.28 - OK.ru reconoce 'N серия' (ej. Verano del 98 - 186 серия); queries sin apóstrofe; sin YouTube.
+ * StreamflixHub v1.8.28 - OK.ru reconoce 'N ÑÐµÑ€Ð¸Ñ' (ej. Verano del 98 - 186 ÑÐµÑ€Ð¸Ñ); queries sin apÃ³strofe; sin YouTube.
  * (base) StreamflixHub v1.8.24 - Fix Servidores Plus: filtro de episodio (.ok) en Odysee/Dailymotion/Archive, Archive.org series por archivo/episodio, Dailymotion con filtro de duracion.
  * (base) StreamflixHub v1.8.23 - GrayJay source (ES5) - arquitectura + extractores Streamflix Reborn 1.7.231 + Servidores Plus
  * Catalogo: TMDB. Fuentes: PoseidonHD2, PelisJuanita, Cuevana3, OK.ru, Odysee, Dailymotion, Archive.org, LaCartoons, sitios WP.
@@ -111,7 +111,7 @@ function uniq(a) {
 function stripAccents(s) {
     s = String(s == null ? "" : s);
     try { s = s.normalize("NFD"); } catch (e) {
-        var from = "áàäâãéèëêíìïîóòöôõúùüûñçÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑÇ", to = "aaaaaeeeeiiiiooooouuuuncAAAAAEEEEIIIIOOOOOUUUUNC", i, r = "";
+        var from = "Ã¡Ã Ã¤Ã¢Ã£Ã©Ã¨Ã«ÃªÃ­Ã¬Ã¯Ã®Ã³Ã²Ã¶Ã´ÃµÃºÃ¹Ã¼Ã»Ã±Ã§ÃÃ€Ã„Ã‚ÃƒÃ‰ÃˆÃ‹ÃŠÃÃŒÃÃŽÃ“Ã’Ã–Ã”Ã•ÃšÃ™ÃœÃ›Ã‘Ã‡", to = "aaaaaeeeeiiiiooooouuuuncAAAAAEEEEIIIIOOOOOUUUUNC", i, r = "";
         for (i = 0; i < s.length; i++) { var p = from.indexOf(s.charAt(i)); r += p >= 0 ? to.charAt(p) : s.charAt(i); }
         return r;
     }
@@ -1341,7 +1341,7 @@ function resolveCands(cands, out, prov, need) {
     var n = 0, good = 0;
     for (i = 0; i < list.length && n < MAX_CAND && budgetLeft() && (!need || good < need); i++) {
         c = list[i];
-        var label = (c.lang ? c.lang + " · " : "") + prov + " · " + (c.url ? prettyHost(c.url) : "directo"), got = [], j;
+        var label = (c.lang ? c.lang + " Â· " : "") + prov + " Â· " + (c.url ? prettyHost(c.url) : "directo"), got = [], j;
         if (c.srcs) {
             for (j = 0; j < c.srcs.length; j++) got.push(c.srcs[j]);
         } else {
@@ -1524,7 +1524,7 @@ var PROVIDERS = [
 function sortSourcesByLang(out) {
     var idx = [], j, sorted = [];
     for (j = 0; j < out.length; j++) {
-        idx.push({ s: out[j], i: j, r: langRank(String(out[j].name || "").split(" · ")[0]) });
+        idx.push({ s: out[j], i: j, r: langRank(String(out[j].name || "").split(" Â· ")[0]) });
     }
     idx.sort(function (a, b) {
         if (a.r != b.r) return a.r - b.r;
@@ -1563,7 +1563,7 @@ function showAuthor(id, name, poster) {
 }
 function catalogVideo(x) {
     var isTv = x.kind == "tv", yr = yearOf(x.date);
-    var name = (x.title || "Sin título") + (yr ? " (" + yr + ")" : "") + (isTv ? " · Serie" : "");
+    var name = (x.title || "Sin tÃ­tulo") + (yr ? " (" + yr + ")" : "") + (isTv ? " Â· Serie" : "");
     return new PlatformVideo({
         id: new PlatformID(PLATFORM, (isTv ? "tv_" : "movie_") + x.id, PID),
         name: name,
@@ -1580,7 +1580,7 @@ function episodeVideo(showId, showName, poster, s, e) {
     var sn = s, num = e.episode_number;
     return new PlatformVideo({
         id: new PlatformID(PLATFORM, "tv_" + showId + "_" + sn + "_" + num, PID),
-        name: "S" + sn + "E" + num + " · " + (e.name || ("Episodio " + num)),
+        name: "S" + sn + "E" + num + " Â· " + (e.name || ("Episodio " + num)),
         thumbnails: thumb(e.still_path ? img(e.still_path, TMDB_STILL) : poster),
         author: showAuthor(showId, showName, poster),
         uploadDate: unixOf(e.air_date),
@@ -1644,7 +1644,7 @@ function details(url) {
 
     var sources = collectSources(ctx);
     var title = ctx.titleEs || ctx.titleEn || "Video";
-    var name = isTv ? (title + " · S" + ctx.season + "E" + ctx.episode) : (title + (ctx.year ? " (" + ctx.year + ")" : ""));
+    var name = isTv ? (title + " Â· S" + ctx.season + "E" + ctx.episode) : (title + (ctx.year ? " (" + ctx.year + ")" : ""));
 
     return new PlatformVideoDetails({
         id: new PlatformID(PLATFORM, isTv ? ("tv_" + p.id + "_" + ctx.season + "_" + ctx.episode) : ("movie_" + p.id), PID),
