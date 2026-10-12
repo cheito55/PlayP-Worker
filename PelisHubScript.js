@@ -1,9 +1,9 @@
 /**
  * PelisHub GrayJay Source Plugin v36
- * - CatÃ¡logo y BÃºsqueda TMDB 100% directos en espaÃ±ol latino (portadas HD instantÃ¡neas)
+ * - Catálogo y Búsqueda TMDB 100% directos en español latino (portadas HD instantáneas)
  * - Cero CAPTCHAs: Entrega streams directos CDN (StreamWish premilkyway, OK.ru okcdn, Archive)
- * - Play AutomÃ¡tico en ExoPlayer en menos de 2 segundos
- * - Filtro estricto de duraciÃ³n: >50 min pelÃ­culas, >15 min series (cero trÃ¡ilers)
+ * - Play Automático en ExoPlayer en menos de 2 segundos
+ * - Filtro estricto de duración: >50 min películas, >15 min series (cero tráilers)
  */
 
 var PLATFORM = "StreamflixHub";
@@ -150,7 +150,7 @@ function homePage(page) {
             return catalogVideo({
                 id: x.id,
                 kind: x.media_type === "tv" ? "tv" : "movie",
-                title: x.title || x.name || "Sin tÃ­tulo",
+                title: x.title || x.name || "Sin título",
                 poster: x.poster_path,
                 date: x.release_date || x.first_air_date
             });
@@ -169,7 +169,7 @@ function searchPage(q, page) {
             return catalogVideo({
                 id: x.id,
                 kind: x.media_type === "tv" ? "tv" : "movie",
-                title: x.title || x.name || "Sin tÃ­tulo",
+                title: x.title || x.name || "Sin título",
                 poster: x.poster_path,
                 date: x.release_date || x.first_air_date
             });
@@ -208,7 +208,7 @@ function channelContents(url) {
         var still = e.still_path ? (TMDB_STILL + e.still_path) : "";
         return new PlatformVideo({
             id: new PlatformID(PLATFORM, "tv_" + p.id + "_" + (p.season || 1) + "_" + num, PID),
-            name: "S" + (p.season || 1) + "E" + num + " Â· " + (e.name || ("Episodio " + num)),
+            name: "S" + (p.season || 1) + "E" + num + " · " + (e.name || ("Episodio " + num)),
             thumbnails: thumb(still),
             author: showAuthor(p.id, "Serie", still),
             uploadDate: 0,
@@ -222,7 +222,7 @@ function channelContents(url) {
 }
 
 // -------------------------------------------------------------------------
-// RESOLVER DE VIDEO DE ALTA VELOCIDAD (CERO CAPTCHA, PLAY AUTOMÃTICO EN 1.5S)
+// RESOLVER DE VIDEO DE ALTA VELOCIDAD (CERO CAPTCHA, PLAY AUTOMÁTICO EN 1.5S)
 // -------------------------------------------------------------------------
 
 // Helper para desempacar eval(function(p,a,c,k,e,d)...) de StreamWish
@@ -280,7 +280,7 @@ function resolveFastStreamWish(tmdbId, isTv, s, e) {
             var hls = extractPackedHls(swHtml);
             if (hls && hls.indexOf("http") === 0) {
                 return new HLSSource({
-                    name: "StreamWish Â· Latino Full HD",
+                    name: "StreamWish · Latino Full HD",
                     duration: 0,
                     url: hls
                 });
@@ -290,7 +290,7 @@ function resolveFastStreamWish(tmdbId, isTv, s, e) {
     return null;
 }
 
-// Resuelve OK.ru Directo en 1 segundo (con filtro de duraciÃ³n: >50 min pelÃ­cula, >15 min series)
+// Resuelve OK.ru Directo en 1 segundo (con filtro de duración: >50 min película, >15 min series)
 function resolveFastOkru(title, year, isTv) {
     try {
         var minSec = isTv ? 15 * 60 : 50 * 60;
@@ -316,7 +316,7 @@ function resolveFastOkru(title, year, isTv) {
             var meta = JSON.parse(rawOpt);
             var dur = (meta.movie && meta.movie.duration) || 0;
 
-            // Filtro estricto contra trÃ¡ilers:
+            // Filtro estricto contra tráilers:
             if (dur > 0 && dur < minSec) continue;
 
             var titleLow = clean((meta.movie && meta.movie.name) || "").toLowerCase();
@@ -328,7 +328,7 @@ function resolveFastOkru(title, year, isTv) {
                 if (vid.url && /^https?:\/\//i.test(vid.url)) {
                     var qName = vid.name ? (vid.name.toUpperCase() + " HD") : "720p HD";
                     return new VideoUrlSource({
-                        name: "OK.ru Â· " + qName + (dur > 0 ? (" (" + Math.round(dur / 60) + " min)") : ""),
+                        name: "OK.ru · " + qName + (dur > 0 ? (" (" + Math.round(dur / 60) + " min)") : ""),
                         duration: dur,
                         url: vid.url,
                         container: "video/mp4"
@@ -349,7 +349,7 @@ function details(url) {
     var s = p.season || 1;
     var e = p.episode || 1;
 
-    // Obtener informaciÃ³n de TMDB directamente
+    // Obtener información de TMDB directamente
     var metaPath = (isTv ? ("/tv/" + p.id) : ("/movie/" + p.id));
     var info = tmdbGet(metaPath, "es-MX") || tmdbGet(metaPath, "en-US") || {};
     var mediaTitle = info.title || info.name || "Video";
@@ -362,34 +362,41 @@ function details(url) {
     try {
         var backend = getBackendUrl();
         var bRes = httpGetRaw(backend + "/api/resolve?id=" + p.id + "&type=" + (isTv ? "tv" : "movie") +
-                              "&season=" + s + "&episode=" + e + "&max=10&servidoresPlus=true");
+                              "&season=" + s + "&episode=" + e + "&max=50&servidoresPlus=true");
         if (bRes && bRes.indexOf('"sources"') >= 0) {
             var parsed = JSON.parse(bRes);
             var bSources = parsed.sources || [];
             for (var bi = 0; bi < bSources.length; bi++) {
                 var bSrc = bSources[bi];
-                if (!bSrc || !bSrc.url || bSrc.isEmbed) continue; // Solo directos para GrayJay
+                if (!bSrc || !bSrc.url) continue;
                 if (bSrc.type === "hls" || bSrc.url.indexOf(".m3u8") >= 0) {
                     sources.push(new HLSSource({
                         name: bSrc.name || "Stream HLS",
                         duration: bSrc.duration || 0,
                         url: bSrc.url
                     }));
-                } else {
+                } else if (bSrc.type === "mp4" || bSrc.url.indexOf(".mp4") >= 0) {
                     sources.push(new VideoUrlSource({
                         name: bSrc.name || "Video MP4",
                         duration: bSrc.duration || 0,
                         url: bSrc.url,
                         container: "video/mp4"
                     }));
+                } else {
+                    sources.push(new VideoUrlSource({
+                        name: bSrc.name || "Servidor Web",
+                        duration: bSrc.duration || 0,
+                        url: bSrc.url,
+                        container: "video/mp4"
+                    }));
                 }
-                if (sources.length >= 4) break;
+                if (sources.length >= 20) break;
             }
         }
     } catch (err) {}
 
-    // INTENTO 2: Si el backend estaba en cold start o no devolviÃ³ fuentes directas,
-    // ejecutar el extractor rÃ¡pido de StreamWish + OK.ru
+    // INTENTO 2: Si el backend estaba en cold start o no devolvió fuentes directas,
+    // ejecutar el extractor rápido de StreamWish + OK.ru
     if (!sources.length) {
         var wishSrc = resolveFastStreamWish(p.id, isTv, s, e);
         if (wishSrc) sources.push(wishSrc);
@@ -398,7 +405,7 @@ function details(url) {
         if (okruSrc) sources.push(okruSrc);
     }
 
-    var dispName = isTv ? (mediaTitle + " Â· S" + s + "E" + e) : (mediaTitle + (year ? (" (" + year + ")") : ""));
+    var dispName = isTv ? (mediaTitle + " · S" + s + "E" + e) : (mediaTitle + (year ? (" (" + year + ")") : ""));
 
     return new PlatformVideoDetails({
         id: new PlatformID(PLATFORM, isTv ? ("tv_" + p.id + "_" + s + "_" + e) : ("movie_" + p.id), PID),
